@@ -78,7 +78,12 @@ func (c *client) handleRequest(ctx context.Context) (err error) {
 			return c.handleUDP(ctx)
 		}
 	}
-	buf, _ := errorResponse(replyCode).MarshalBinary()
-	c.clientConn.Write(buf)
-	return
+	return c.fail(replyCode, err)
+}
+
+func (c *client) fail(replyCode ReplyCode, err error) error {
+	rsp := Response{Addr: ZeroAddr, Reply: replyCode}
+	buf, _ := rsp.MarshalBinary()
+	_, _ = c.clientConn.Write(buf)
+	return err
 }

@@ -8,10 +8,6 @@ type Response struct {
 	Reply ReplyCode
 }
 
-func errorResponse(code ReplyCode) *Response {
-	return &Response{Addr: ZeroAddr, Reply: code}
-}
-
 // MarshalBinary converts a Response struct into a packet.
 func (res *Response) MarshalBinary() (pkt []byte, err error) {
 	pkt = append(pkt, Socks5Version, byte(res.Reply), 0)

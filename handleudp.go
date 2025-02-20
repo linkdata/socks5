@@ -43,9 +43,7 @@ func (c *client) handleUDP(ctx context.Context) (err error) {
 			}
 		}
 	}
-	buf, _ := errorResponse(GeneralFailure).MarshalBinary()
-	c.clientConn.Write(buf)
-	return
+	return c.fail(GeneralFailure, err)
 }
 
 func ignoreTimeout(err error) error {

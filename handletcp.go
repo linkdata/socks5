@@ -45,8 +45,5 @@ func (c *client) handleTCP(ctx context.Context, addr string) (err error) {
 			}
 		}
 	}
-
-	buf, _ := errorResponse(GeneralFailure).MarshalBinary()
-	c.clientConn.Write(buf)
-	return
+	return c.fail(GeneralFailure, err)
 }
