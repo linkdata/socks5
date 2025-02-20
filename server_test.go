@@ -5,19 +5,21 @@ package socks5_test
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/linkdata/socks5"
 	"golang.org/x/net/proxy"
 )
 
-func socks5Server(listener net.Listener) {
+func socks5Server(ctx context.Context, listener net.Listener) {
 	var server socks5.Server
-	err := server.Serve(listener)
+	err := server.Serve(ctx, listener)
 	if err != nil {
 		panic(err)
 	}
@@ -48,6 +50,9 @@ func udpEchoServer(conn net.PacketConn) {
 }
 
 func TestRead(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
 	// backend server which we'll use SOCKS5 to connect to
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
@@ -62,7 +67,7 @@ func TestRead(t *testing.T) {
 		t.Fatal(err)
 	}
 	socks5Port := socks5.Addr().(*net.TCPAddr).Port
-	go socks5Server(socks5)
+	go socks5Server(ctx, socks5)
 
 	addr := fmt.Sprintf("localhost:%d", socks5Port)
 	socksDialer, err := proxy.SOCKS5("tcp", addr, nil, proxy.Direct)
@@ -110,7 +115,7 @@ func TestReadPassword(t *testing.T) {
 	auth := &proxy.Auth{User: "foo", Password: "bar"}
 	go func() {
 		s := socks5.Server{Username: auth.User, Password: auth.Password}
-		err := s.Serve(socks5ln)
+		err := s.Serve(context.Background(), socks5ln)
 		if err != nil && !errors.Is(err, net.ErrClosed) {
 			panic(err)
 		}
@@ -169,6 +174,9 @@ func TestReadPassword(t *testing.T) {
 }
 
 func TestUDP(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
 	// backend UDP server which we'll use SOCKS5 to connect to
 	newUDPEchoServer := func() net.PacketConn {
 		listener, err := net.ListenPacket("udp", ":0")
@@ -196,7 +204,7 @@ func TestUDP(t *testing.T) {
 		t.Fatal(err)
 	}
 	socks5Port := socksrv.Addr().(*net.TCPAddr).Port
-	go socks5Server(socksrv)
+	go socks5Server(ctx, socksrv)
 
 	// make a socks5 udpAssociate conn
 	newUdpAssociateConn := func() (socks5Conn net.Conn, socks5UDPAddr socks5.Addr) {
@@ -261,14 +269,15 @@ func TestUDP(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, responseBody, err = socks5.ParseUDPRequest(buf[:n])
+		var req *socks5.UdpRequest
+		req, err = socks5.ParseUDPRequest(buf[:n])
 		if err != nil {
 			t.Fatal(err)
 		}
-		return responseBody
+		return req.Body
 	}
 
-	udpProxyAddr, err := net.ResolveUDPAddr("udp", udpProxySocksAddr.HostPort())
+	udpProxyAddr, err := net.ResolveUDPAddr("udp", udpProxySocksAddr.String())
 	if err != nil {
 		t.Fatal(err)
 	}

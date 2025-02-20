@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/netip"
 	"strconv"
 	"time"
 )
@@ -69,22 +68,23 @@ type Server struct {
 	// If nil, the standard logger is used.
 	Logf func(string, ...any)
 
-	// Dialer optionally specifies the dialer to use for outgoing connections.
-	// If nil, the net package's standard dialer is used.
-	Dialer func(ctx context.Context, network, addr string) (net.Conn, error)
+	// Dialer optionally specifies the ContextDialer to use for outgoing connections.
+	// If nil, DefaultDialer will be used, which if not changed is a net.Dialer.
+	Dialer ContextDialer
 
 	// Username and Password, if set, are the credential clients must provide.
 	Username string
 	Password string
 }
 
-func (s *Server) dial(ctx context.Context, network, addr string) (net.Conn, error) {
-	dial := s.Dialer
-	if dial == nil {
-		dialer := &net.Dialer{}
-		dial = dialer.DialContext
+var DefaultDialer ContextDialer = &net.Dialer{}
+
+func (s *Server) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	dialer := s.Dialer
+	if dialer == nil {
+		dialer = DefaultDialer
 	}
-	return dial(ctx, network, addr)
+	return dialer.DialContext(ctx, network, addr)
 }
 
 func (s *Server) logf(format string, args ...any) {
@@ -96,21 +96,34 @@ func (s *Server) logf(format string, args ...any) {
 }
 
 // Serve accepts and handles incoming connections on the given listener.
-func (s *Server) Serve(l net.Listener) error {
+func (s *Server) Serve(ctx context.Context, l net.Listener) (err error) {
 	defer l.Close()
-	for {
-		c, err := l.Accept()
-		if err != nil {
-			return err
+	errchan := make(chan error)
+	go s.listen(ctx, errchan, l)
+	select {
+	case <-ctx.Done():
+	case err = <-errchan:
+	}
+	return
+}
+
+func (s *Server) listen(ctx context.Context, errchan chan<- error, l net.Listener) {
+	defer close(errchan)
+	var err error
+	for err == nil {
+		var clientConn net.Conn
+		if clientConn, err = l.Accept(); err == nil {
+			go s.startConn(ctx, clientConn)
 		}
-		go func() {
-			defer c.Close()
-			conn := &Conn{logf: s.Logf, clientConn: c, srv: s}
-			err := conn.Run()
-			if err != nil {
-				s.logf("client connection failed: %v", err)
-			}
-		}()
+	}
+	errchan <- err
+}
+
+func (s *Server) startConn(ctx context.Context, clientConn net.Conn) {
+	defer clientConn.Close()
+	conn := &client{clientConn: clientConn, srv: s}
+	if err := conn.serve(ctx); err != nil {
+		s.logf("client connection failed: %v", err)
 	}
 }
 
@@ -178,15 +191,4 @@ func parseClientAuth(r io.Reader) (usr, pwd string, err error) {
 		}
 	}
 	return
-}
-
-func getAddrType(s string) AddrType {
-	if addr, err := netip.ParseAddr(s); err == nil {
-		addr = addr.Unmap()
-		if addr.Is4() {
-			return Ipv4
-		}
-		return Ipv6
-	}
-	return DomainName
 }

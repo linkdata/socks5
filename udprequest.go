@@ -7,6 +7,7 @@ import (
 
 type UdpRequest struct {
 	Addr Addr
+	Body []byte
 	Frag byte
 }
 
@@ -19,17 +20,16 @@ func requireValidHeader(data []byte) (err error) {
 	return
 }
 
-func ParseUDPRequest(data []byte) (req *UdpRequest, body []byte, err error) {
+func ParseUDPRequest(data []byte) (req *UdpRequest, err error) {
 	if err = requireValidHeader(data); err == nil {
 		frag := data[2]
 		reader := bytes.NewReader(data[3:])
 		var addr Addr
 		if addr, err = ParseAddr(reader); err == nil {
-			bodyLen := reader.Len()
-			body = data[len(data)-bodyLen:]
 			req = &UdpRequest{
 				Frag: frag,
 				Addr: addr,
+				Body: data[len(data)-reader.Len():],
 			}
 		}
 	}
@@ -38,7 +38,9 @@ func ParseUDPRequest(data []byte) (req *UdpRequest, body []byte, err error) {
 
 func (u *UdpRequest) AppendBinary(inbuf []byte) (outbuf []byte, err error) {
 	outbuf = append(inbuf, 0, 0, u.Frag)
-	outbuf, err = u.Addr.AppendBinary(outbuf)
+	if outbuf, err = u.Addr.AppendBinary(outbuf); err == nil {
+		outbuf = append(outbuf, u.Body...)
+	}
 	return
 }
 

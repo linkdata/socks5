@@ -39,6 +39,26 @@ var (
 
 var ZeroAddr = Addr{Type: Ipv4, Addr: "0.0.0.0", Port: 0}
 
+func MakeAddr(s string, port uint16) (addr Addr) {
+	if s != "" {
+		addr.Addr = s
+		addr.Port = port
+		if ipaddr, err := netip.ParseAddr(s); err == nil {
+			ipaddr = ipaddr.Unmap()
+			if ipaddr.Is4() {
+				addr.Type = Ipv4
+			} else {
+				addr.Type = Ipv6
+			}
+		} else {
+			addr.Type = DomainName
+		}
+	} else {
+		addr = ZeroAddr
+	}
+	return
+}
+
 func ParseAddr(r io.Reader) (addr Addr, err error) {
 	var addrTypeData [1]byte
 	if _, err = io.ReadFull(r, addrTypeData[:]); err == nil {
@@ -137,10 +157,6 @@ func (s Addr) MarshalBinary() ([]byte, error) {
 	return s.AppendBinary(nil)
 }
 
-func (s Addr) HostPort() string {
-	return net.JoinHostPort(s.Addr, strconv.Itoa(int(s.Port)))
-}
-
 func (s Addr) String() string {
-	return s.HostPort()
+	return net.JoinHostPort(s.Addr, strconv.Itoa(int(s.Port)))
 }
