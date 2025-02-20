@@ -13,6 +13,7 @@ type client struct {
 }
 
 var ErrUnsupportedCommand = errors.New("unsupported command")
+var ErrAuthFailed = errors.New("authentication failed")
 
 func (c *client) serve(ctx context.Context) (err error) {
 	var authMethod AuthMethod
@@ -23,8 +24,6 @@ func (c *client) serve(ctx context.Context) (err error) {
 	}
 	return
 }
-
-var ErrAuthFailed = errors.New("authentication failed")
 
 func (c *client) verifyAuth(authMethod AuthMethod) (err error) {
 	if authMethod == PasswordAuth {
@@ -70,14 +69,13 @@ func (c *client) handleRequest(ctx context.Context) (err error) {
 	var req *Request
 	replyCode := GeneralFailure
 	if req, err = ReadRequest(c.clientConn); err == nil {
+		replyCode = CommandNotSupported
+		err = ErrUnsupportedCommand
 		switch req.Cmd {
 		case Connect:
 			return c.handleTCP(ctx, req.Addr.String())
 		case UdpAssociate:
 			return c.handleUDP(ctx)
-		default:
-			replyCode = CommandNotSupported
-			err = ErrUnsupportedCommand
 		}
 	}
 	buf, _ := errorResponse(replyCode).MarshalBinary()
