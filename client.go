@@ -23,10 +23,10 @@ func (c *client) serve(ctx context.Context) error {
 
 	err := parseClientGreeting(c.clientConn, authMethod)
 	if err != nil {
-		c.clientConn.Write([]byte{Socks5Version, NoAcceptableAuth})
+		c.clientConn.Write([]byte{Socks5Version, byte(NoAcceptableAuth)})
 		return err
 	}
-	c.clientConn.Write([]byte{Socks5Version, authMethod})
+	c.clientConn.Write([]byte{Socks5Version, byte(authMethod)})
 	if needAuth {
 		user, pwd, err := parseClientAuth(c.clientConn)
 		if err != nil || user != c.srv.Username || pwd != c.srv.Password {

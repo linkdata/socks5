@@ -213,7 +213,7 @@ func TestUDP(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = conn.Write([]byte{socks5.Socks5Version, 0x01, socks5.NoAuthRequired}) // client hello with no auth
+		_, err = conn.Write([]byte{socks5.Socks5Version, 0x01, byte(socks5.NoAuthRequired)}) // client hello with no auth
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -222,7 +222,7 @@ func TestUDP(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if n != 2 || buf[0] != socks5.Socks5Version || buf[1] != socks5.NoAuthRequired {
+		if n != 2 || buf[0] != socks5.Socks5Version || buf[1] != byte(socks5.NoAuthRequired) {
 			t.Fatalf("got: %q want: 0x05 0x00", buf[:n])
 		}
 

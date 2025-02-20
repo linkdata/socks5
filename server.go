@@ -13,11 +13,13 @@ import (
 	"time"
 )
 
+type AuthMethod byte
+
 // Authentication METHODs described in RFC 1928, section 3.
 const (
-	NoAuthRequired   byte = 0
-	PasswordAuth     byte = 2
-	NoAcceptableAuth byte = 255
+	NoAuthRequired   AuthMethod = 0
+	PasswordAuth     AuthMethod = 2
+	NoAcceptableAuth AuthMethod = 255
 )
 
 // PasswordAuthVersion is the auth version byte described in RFC 1929.
@@ -150,7 +152,7 @@ func SplitHostPort(hostport string) (host string, port uint16, err error) {
 
 var ErrNoAcceptableAuthMethods = errors.New("no acceptable auth methods")
 
-func parseClientGreeting(r io.Reader, authMethod byte) (err error) {
+func parseClientGreeting(r io.Reader, authMethod AuthMethod) (err error) {
 	var hdr [2]byte
 	if _, err = io.ReadFull(r, hdr[:]); err == nil {
 		if err = MustEqual(hdr[0], Socks5Version, ErrVersion); err == nil {
@@ -158,7 +160,7 @@ func parseClientGreeting(r io.Reader, authMethod byte) (err error) {
 			methods := make([]byte, count)
 			if _, err = io.ReadFull(r, methods); err == nil {
 				for _, m := range methods {
-					if m == authMethod {
+					if m == byte(authMethod) {
 						return nil
 					}
 				}
