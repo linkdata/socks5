@@ -14,29 +14,56 @@ type client struct {
 
 var ErrUnsupportedCommand = errors.New("unsupported command")
 
-func (c *client) serve(ctx context.Context) error {
-	needAuth := c.srv.Username != "" || c.srv.Password != ""
-	authMethod := NoAuthRequired
-	if needAuth {
+func (c *client) serve(ctx context.Context) (err error) {
+	var authMethod AuthMethod
+	if authMethod, err = c.negotiateAuth(); err == nil {
+		if err = c.verifyAuth(authMethod); err == nil {
+			err = c.handleRequest(ctx)
+		}
+	}
+	return
+}
+
+var ErrAuthFailed = errors.New("authentication failed")
+
+func (c *client) verifyAuth(authMethod AuthMethod) (err error) {
+	if authMethod == PasswordAuth {
+		var user, pwd string
+		if user, pwd, err = parseClientAuth(c.clientConn); err == nil {
+			if user == c.srv.Username && pwd == c.srv.Password {
+				c.clientConn.Write([]byte{1, 0}) // auth success
+				return
+			}
+			err = ErrAuthFailed
+		}
+		_, _ = c.clientConn.Write([]byte{1, 1}) // auth error
+	}
+	return
+}
+
+func requireAuthMethod(authMethod AuthMethod, authMethods []AuthMethod) (err error) {
+	for _, m := range authMethods {
+		if m == authMethod {
+			return nil
+		}
+	}
+	return ErrNoAcceptableAuthMethods
+}
+
+func (c *client) negotiateAuth() (authMethod AuthMethod, err error) {
+	authMethod = NoAuthRequired
+	if c.srv.Username != "" || c.srv.Password != "" {
 		authMethod = PasswordAuth
 	}
-
-	err := parseClientGreeting(c.clientConn, authMethod)
-	if err != nil {
-		c.clientConn.Write([]byte{Socks5Version, byte(NoAcceptableAuth)})
-		return err
-	}
-	c.clientConn.Write([]byte{Socks5Version, byte(authMethod)})
-	if needAuth {
-		user, pwd, err := parseClientAuth(c.clientConn)
-		if err != nil || user != c.srv.Username || pwd != c.srv.Password {
-			c.clientConn.Write([]byte{1, 1}) // auth error
-			return err
+	var authMethods []AuthMethod
+	if authMethods, err = readClientGreeting(c.clientConn); err == nil {
+		if err = requireAuthMethod(authMethod, authMethods); err == nil {
+			_, err = c.clientConn.Write([]byte{Socks5Version, byte(authMethod)})
+			return
 		}
-		c.clientConn.Write([]byte{1, 0}) // auth success
 	}
-
-	return c.handleRequest(ctx)
+	_, _ = c.clientConn.Write([]byte{Socks5Version, byte(NoAcceptableAuth)})
+	return
 }
 
 func (c *client) handleRequest(ctx context.Context) (err error) {

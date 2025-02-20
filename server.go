@@ -152,7 +152,7 @@ func SplitHostPort(hostport string) (host string, port uint16, err error) {
 
 var ErrNoAcceptableAuthMethods = errors.New("no acceptable auth methods")
 
-func parseClientGreeting(r io.Reader, authMethod AuthMethod) (err error) {
+func readClientGreeting(r io.Reader) (authMethods []AuthMethod, err error) {
 	var hdr [2]byte
 	if _, err = io.ReadFull(r, hdr[:]); err == nil {
 		if err = MustEqual(hdr[0], Socks5Version, ErrVersion); err == nil {
@@ -160,11 +160,8 @@ func parseClientGreeting(r io.Reader, authMethod AuthMethod) (err error) {
 			methods := make([]byte, count)
 			if _, err = io.ReadFull(r, methods); err == nil {
 				for _, m := range methods {
-					if m == byte(authMethod) {
-						return nil
-					}
+					authMethods = append(authMethods, AuthMethod(m))
 				}
-				err = ErrNoAcceptableAuthMethods
 			}
 		}
 	}
