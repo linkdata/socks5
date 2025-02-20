@@ -100,7 +100,7 @@ func (s *Server) logf(format string, args ...any) {
 // Serve accepts and handles incoming connections on the given listener.
 func (s *Server) Serve(ctx context.Context, l net.Listener) (err error) {
 	defer l.Close()
-	errchan := make(chan error)
+	errchan := make(chan error, 1)
 	go s.listen(ctx, errchan, l)
 	select {
 	case <-ctx.Done():

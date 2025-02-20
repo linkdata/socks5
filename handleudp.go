@@ -29,7 +29,7 @@ func (c *client) handleUDP(ctx context.Context) (err error) {
 				var buf []byte
 				if buf, err = res.MarshalBinary(); err == nil {
 					if _, err = c.clientConn.Write(buf); err == nil {
-						errchan := make(chan error)
+						errchan := make(chan error, 1)
 						closechan := make(chan struct{})
 						go awaitTCPClose(c.clientConn, closechan)
 						go c.serveUDP(ctx, errchan, clientUDPConn)
