@@ -173,11 +173,57 @@ func TestReadPassword(t *testing.T) {
 	}
 }
 
+func TestInvalidCommand(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	// SOCKS5 server
+	socksrv, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	socks5Port := socksrv.Addr().(*net.TCPAddr).Port
+	go socks5Server(ctx, socksrv)
+
+	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", socks5Port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = conn.Write([]byte{socks5.Socks5Version, 0x01, byte(socks5.NoAuthRequired)}) // client hello with no auth
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]byte, 1024)
+	n, err := conn.Read(buf) // server hello
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 2 || buf[0] != socks5.Socks5Version || buf[1] != byte(socks5.NoAuthRequired) {
+		t.Fatalf("got: %q want: 0x05 0x00", buf[:n])
+	}
+	targetAddr := socks5.Addr{Type: socks5.Ipv4, Addr: "0.0.0.0", Port: 0}
+	targetAddrPkt, err := targetAddr.MarshalBinary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = conn.Write(append([]byte{socks5.Socks5Version, 0x00, 0x00}, targetAddrPkt...)) // client reqeust
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err = conn.Read(buf) // server response
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n < 3 || !bytes.Equal(buf[:3], []byte{socks5.Socks5Version, byte(socks5.CommandNotSupported), 0x00}) {
+		t.Fatalf("got: %q want: 0x05 0x0A 0x00", buf[:n])
+	}
+}
+
 func TestUDP(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	socks5.UDPTimeout = time.Millisecond
+	socks5.UDPTimeout = time.Millisecond * 10
 
 	// backend UDP server which we'll use SOCKS5 to connect to
 	newUDPEchoServer := func() net.PacketConn {
@@ -299,7 +345,7 @@ func TestUDP(t *testing.T) {
 		}
 	}
 
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(socks5.UDPTimeout * 2)
 
 	port := echoServerListener[echoServerNumber-1].LocalAddr().(*net.UDPAddr).Port
 	addr := socks5.Addr{Type: socks5.Ipv4, Addr: "127.0.0.1", Port: uint16(port)}

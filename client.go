@@ -68,21 +68,24 @@ func (c *client) handleRequest(ctx context.Context) (err error) {
 	var req *Request
 	replyCode := GeneralFailure
 	if req, err = ReadRequest(c.clientConn); err == nil {
-		replyCode = CommandNotSupported
-		err = ErrUnsupportedCommand
 		switch req.Cmd {
 		case Connect:
-			return c.handleTCP(ctx, req.Addr.String())
+			err = c.handleTCP(ctx, req.Addr.String())
 		case UdpAssociate:
-			return c.handleUDP(ctx)
+			err = c.handleUDP(ctx)
+		default:
+			replyCode = CommandNotSupported
+			err = ErrUnsupportedCommand
 		}
 	}
 	return c.fail(replyCode, err)
 }
 
 func (c *client) fail(replyCode ReplyCode, err error) error {
-	rsp := Response{Addr: ZeroAddr, Reply: replyCode}
-	buf, _ := rsp.MarshalBinary()
-	_, _ = c.clientConn.Write(buf)
+	if err != nil {
+		rsp := Response{Addr: ZeroAddr, Reply: replyCode}
+		buf, _ := rsp.MarshalBinary()
+		_, _ = c.clientConn.Write(buf)
+	}
 	return err
 }
