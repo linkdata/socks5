@@ -29,7 +29,7 @@ func (c *client) verifyAuth(authMethod AuthMethod) (err error) {
 		var user, pwd string
 		if user, pwd, err = parseClientAuth(c.clientConn); err == nil {
 			if user == c.srv.Username && pwd == c.srv.Password {
-				c.clientConn.Write([]byte{1, 0}) // auth success
+				_, err = c.clientConn.Write([]byte{1, 0}) // auth success
 				return
 			}
 			err = ErrAuthFailed

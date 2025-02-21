@@ -75,7 +75,7 @@ func (svc *udpService) serve() {
 func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientTCPConn net.Conn, clientUDPConn net.PacketConn) {
 	go func() {
 		_, _ = io.Copy(io.Discard, clientTCPConn)
-		clientUDPConn.Close()
+		_ = clientUDPConn.Close()
 	}()
 
 	udpServicers := map[Addr]*udpService{}
@@ -136,7 +136,7 @@ func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientTCPCo
 			timeout := int64((time.Since(started) - UDPTimeout))
 			for _, svc := range udpServicers {
 				if when := svc.when.Load(); when < timeout {
-					svc.target.Close()
+					_ = svc.target.Close()
 					delete(udpServicers, svc.targetaddr)
 				}
 			}
