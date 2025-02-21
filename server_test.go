@@ -255,7 +255,7 @@ func TestUDP(t *testing.T) {
 	defer conn.Close()
 
 	sendUDPAndWaitResponse := func(socks5UDPConn net.Conn, addr socks5.Addr, body []byte) (responseBody []byte) {
-		udpPayload, err := (&socks5.UdpRequest{Addr: addr}).MarshalBinary()
+		udpPayload, err := (&socks5.UDPPacket{Addr: addr}).MarshalBinary()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -269,8 +269,8 @@ func TestUDP(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var req *socks5.UdpRequest
-		req, err = socks5.ParseUDPRequest(buf[:n])
+		var req *socks5.UDPPacket
+		req, err = socks5.ParseUDPPacket(buf[:n])
 		if err != nil {
 			t.Fatal(err)
 		}

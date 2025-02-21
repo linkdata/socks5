@@ -10,7 +10,6 @@ import (
 	"log"
 	"net"
 	"strconv"
-	"time"
 )
 
 type AuthMethod byte
@@ -56,12 +55,6 @@ const (
 	TtlExpired           ReplyCode = 6
 	CommandNotSupported  ReplyCode = 7
 	AddrTypeNotSupported ReplyCode = 8
-)
-
-// UDP conn default buffer size and read timeout.
-const (
-	bufferSize  = 8 * 1024
-	readTimeout = 5 * time.Second
 )
 
 // Server is a SOCKS5 proxy server.
@@ -127,11 +120,6 @@ func (s *Server) startConn(ctx context.Context, clientConn net.Conn) {
 	if err := conn.serve(ctx); err != nil {
 		s.logf("client connection failed: %v", err)
 	}
-}
-
-func isTimeout(err error) bool {
-	terr, ok := errors.Unwrap(err).(interface{ Timeout() bool })
-	return ok && terr.Timeout()
 }
 
 var ErrInvalidPortNumber = errors.New("invalid port number")

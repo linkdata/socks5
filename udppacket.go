@@ -5,29 +5,29 @@ import (
 	"errors"
 )
 
-type UdpRequest struct {
+type UDPPacket struct {
 	Addr Addr
 	Body []byte
-	Frag byte
 }
 
-var ErrInvalidUdpRequest = errors.New("invalid udp request header")
+var ErrInvalidUDPPacket = errors.New("invalid udp packet")
+var ErrFragmentedUDPPacket = errors.New("fragmented udp packet")
 
 func requireValidHeader(data []byte) (err error) {
-	if len(data) < 4 || !(data[0] == 0 && data[1] == 0) {
-		err = ErrInvalidUdpRequest
+	if len(data) < 4 || data[0] != 0 || data[1] != 0 {
+		err = ErrInvalidUDPPacket
+	} else if data[2] != 0 {
+		err = ErrFragmentedUDPPacket
 	}
 	return
 }
 
-func ParseUDPRequest(data []byte) (req *UdpRequest, err error) {
+func ParseUDPPacket(data []byte) (pkt *UDPPacket, err error) {
 	if err = requireValidHeader(data); err == nil {
-		frag := data[2]
 		reader := bytes.NewReader(data[3:])
 		var addr Addr
 		if addr, err = ParseAddr(reader); err == nil {
-			req = &UdpRequest{
-				Frag: frag,
+			pkt = &UDPPacket{
 				Addr: addr,
 				Body: data[len(data)-reader.Len():],
 			}
@@ -36,14 +36,14 @@ func ParseUDPRequest(data []byte) (req *UdpRequest, err error) {
 	return
 }
 
-func (u *UdpRequest) AppendBinary(inbuf []byte) (outbuf []byte, err error) {
-	outbuf = append(inbuf, 0, 0, u.Frag)
+func (u *UDPPacket) AppendBinary(inbuf []byte) (outbuf []byte, err error) {
+	outbuf = append(inbuf, 0, 0, 0)
 	if outbuf, err = u.Addr.AppendBinary(outbuf); err == nil {
 		outbuf = append(outbuf, u.Body...)
 	}
 	return
 }
 
-func (u *UdpRequest) MarshalBinary() (pkt []byte, err error) {
+func (u *UDPPacket) MarshalBinary() (pkt []byte, err error) {
 	return u.AppendBinary(nil)
 }

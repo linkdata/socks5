@@ -7,9 +7,8 @@ import (
 )
 
 type client struct {
-	srv           *Server
-	clientConn    net.Conn
-	udpClientAddr net.Addr
+	srv        *Server
+	clientConn net.Conn
 }
 
 var ErrUnsupportedCommand = errors.New("unsupported command")
