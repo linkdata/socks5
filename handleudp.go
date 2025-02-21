@@ -32,9 +32,7 @@ func (c *client) handleUDP(ctx context.Context) (err error) {
 				var buf []byte
 				if buf, err = res.MarshalBinary(); err == nil {
 					if _, err = c.clientConn.Write(buf); err == nil {
-						errchan := make(chan error, 1)
-						go c.serveUDP(ctx, errchan, c.clientConn, clientUDPConn)
-						err = <-errchan
+						err = c.serveUDP(ctx, c.clientConn, clientUDPConn)
 					}
 				}
 			}
@@ -72,7 +70,7 @@ func (svc *udpService) serve() {
 	}
 }
 
-func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientTCPConn net.Conn, clientUDPConn net.PacketConn) {
+func (c *client) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUDPConn net.PacketConn) (err error) {
 	go func() {
 		_, _ = io.Copy(io.Discard, clientTCPConn)
 		_ = clientUDPConn.Close()
@@ -84,13 +82,11 @@ func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientTCPCo
 		for _, svc := range udpServicers {
 			_ = svc.target.Close()
 		}
-		close(errchan)
 	}()
 
 	var clientAddr net.Addr
 	var wantSource string
 	var buf [maxUdpPacket]byte
-	var err error
 
 	started := time.Now()
 	err = clientUDPConn.SetReadDeadline(started.Add(UDPTimeout / 10))
@@ -144,8 +140,7 @@ func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientTCPCo
 		}
 	}
 
-	c.srv.logf("udp transfer: handle udp request fail: %v", err)
-	errchan <- err
+	return
 }
 
 func isTimeout(err error) bool {
