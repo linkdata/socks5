@@ -2,7 +2,6 @@ package socks5
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net"
 	"time"
@@ -28,17 +27,11 @@ func (c *client) handleTCP(ctx context.Context, addr string) (err error) {
 					errc := make(chan error, 2)
 					go func() {
 						_, err := io.Copy(c.clientConn, srv)
-						if err != nil {
-							err = fmt.Errorf("from backend to client: %w", err)
-						}
-						errc <- err
+						errc <- NewTextError(err, "from backend to client")
 					}()
 					go func() {
 						_, err := io.Copy(srv, c.clientConn)
-						if err != nil {
-							err = fmt.Errorf("from client to backend: %w", err)
-						}
-						errc <- err
+						errc <- NewTextError(err, "from client to backend")
 					}()
 					return <-errc
 				}
