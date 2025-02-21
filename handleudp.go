@@ -14,7 +14,7 @@ const (
 	maxUdpPacket = math.MaxUint16 - 28
 )
 
-var UDPTimeout = time.Second * 5
+var UDPTimeout = time.Second * 10
 
 func (c *client) handleUDP(ctx context.Context) (err error) {
 	var host string
@@ -94,7 +94,7 @@ func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientTCPCo
 	var err error
 
 	started := time.Now()
-	err = clientUDPConn.SetReadDeadline(started.Add(time.Second))
+	err = clientUDPConn.SetReadDeadline(started.Add(UDPTimeout / 10))
 
 	for err == nil {
 		var n int
@@ -141,7 +141,7 @@ func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientTCPCo
 					delete(udpServicers, svc.targetaddr)
 				}
 			}
-			err = clientUDPConn.SetReadDeadline(time.Now().Add(time.Second))
+			err = clientUDPConn.SetReadDeadline(time.Now().Add(UDPTimeout / 10))
 		}
 	}
 

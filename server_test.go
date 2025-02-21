@@ -177,6 +177,8 @@ func TestUDP(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
+	socks5.UDPTimeout = time.Millisecond
+
 	// backend UDP server which we'll use SOCKS5 to connect to
 	newUDPEchoServer := func() net.PacketConn {
 		listener, err := net.ListenPacket("udp", ":0")
@@ -187,7 +189,7 @@ func TestUDP(t *testing.T) {
 		return listener
 	}
 
-	const echoServerNumber = 3
+	const echoServerNumber = 5
 	echoServerListener := make([]net.PacketConn, echoServerNumber)
 	for i := 0; i < echoServerNumber; i++ {
 		echoServerListener[i] = newUDPEchoServer()
@@ -287,7 +289,7 @@ func TestUDP(t *testing.T) {
 	}
 	defer socks5UDPConn.Close()
 
-	for i := 0; i < echoServerNumber; i++ {
+	for i := 0; i < echoServerNumber-1; i++ {
 		port := echoServerListener[i].LocalAddr().(*net.UDPAddr).Port
 		addr := socks5.Addr{Type: socks5.Ipv4, Addr: "127.0.0.1", Port: uint16(port)}
 		requestBody := []byte(fmt.Sprintf("Test %d", i))
@@ -295,6 +297,16 @@ func TestUDP(t *testing.T) {
 		if !bytes.Equal(requestBody, responseBody) {
 			t.Fatalf("got: %q want: %q", responseBody, requestBody)
 		}
+	}
+
+	time.Sleep(time.Millisecond * 10)
+
+	port := echoServerListener[echoServerNumber-1].LocalAddr().(*net.UDPAddr).Port
+	addr := socks5.Addr{Type: socks5.Ipv4, Addr: "127.0.0.1", Port: uint16(port)}
+	requestBody := []byte(fmt.Sprintf("Test %d", echoServerNumber-1))
+	responseBody := sendUDPAndWaitResponse(socks5UDPConn, addr, requestBody)
+	if !bytes.Equal(requestBody, responseBody) {
+		t.Fatalf("got: %q want: %q", responseBody, requestBody)
 	}
 }
 
