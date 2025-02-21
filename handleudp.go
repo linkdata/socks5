@@ -10,10 +10,11 @@ import (
 	"time"
 )
 
-func awaitTCPClose(conn net.Conn, ch chan struct{}) {
-	defer close(ch)
-	_, _ = io.Copy(io.Discard, conn)
-}
+const (
+	maxUdpPacket = math.MaxUint16 - 28
+)
+
+var UDPTimeout = time.Second * 5
 
 func (c *client) handleUDP(ctx context.Context) (err error) {
 	var host string
@@ -32,13 +33,8 @@ func (c *client) handleUDP(ctx context.Context) (err error) {
 				if buf, err = res.MarshalBinary(); err == nil {
 					if _, err = c.clientConn.Write(buf); err == nil {
 						errchan := make(chan error, 1)
-						closechan := make(chan struct{})
-						go awaitTCPClose(c.clientConn, closechan)
-						go c.serveUDP(ctx, errchan, clientUDPConn)
-						select {
-						case <-closechan:
-						case err = <-errchan:
-						}
+						go c.serveUDP(ctx, errchan, c.clientConn, clientUDPConn)
+						err = <-errchan
 						return
 					}
 				}
@@ -48,11 +44,8 @@ func (c *client) handleUDP(ctx context.Context) (err error) {
 	return c.fail(GeneralFailure, err)
 }
 
-const (
-	maxUdpPacket = math.MaxUint16 - 28
-)
-
 type udpService struct {
+	started    time.Time
 	client     net.PacketConn
 	clientaddr net.Addr
 	target     net.Conn
@@ -72,7 +65,7 @@ func (svc *udpService) serve() {
 				var nn int
 				if nn, err = svc.client.WriteTo(b, svc.clientaddr); err == nil {
 					if err = MustEqual(nn, len(b), io.ErrShortWrite); err == nil {
-						svc.when.Store(time.Now().UnixMilli())
+						svc.when.Store(int64(time.Since(svc.started)))
 					}
 				}
 			}
@@ -80,10 +73,11 @@ func (svc *udpService) serve() {
 	}
 }
 
-var UDPTimeout = time.Second * 5
-
-func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientUDPConn net.PacketConn) {
-	defer close(errchan)
+func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientTCPConn net.Conn, clientUDPConn net.PacketConn) {
+	go func() {
+		_, _ = io.Copy(io.Discard, clientTCPConn)
+		clientUDPConn.Close()
+	}()
 
 	udpServicers := map[Addr]*udpService{}
 
@@ -91,16 +85,20 @@ func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientUDPCo
 		for _, svc := range udpServicers {
 			_ = svc.target.Close()
 		}
+		close(errchan)
 	}()
 
 	var clientAddr net.Addr
 	var wantSource string
 	var buf [maxUdpPacket]byte
 	var err error
+
+	started := time.Now()
+	err = clientUDPConn.SetReadDeadline(started.Add(time.Second))
+
 	for err == nil {
 		var n int
 		var addr net.Addr
-		_ = clientUDPConn.SetReadDeadline(time.Now().Add(UDPTimeout))
 		if n, addr, err = clientUDPConn.ReadFrom(buf[:]); err == nil {
 			gotAddr := addr.String()
 			if clientAddr == nil {
@@ -115,6 +113,7 @@ func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientUDPCo
 						var targetConn net.Conn
 						if targetConn, err = c.srv.DialContext(ctx, "udp", pkt.Addr.String()); err == nil {
 							svc = &udpService{
+								started:    started,
 								client:     clientUDPConn,
 								clientaddr: clientAddr,
 								target:     targetConn,
@@ -128,21 +127,21 @@ func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientUDPCo
 						var nn int
 						if nn, err = svc.target.Write(pkt.Body); err == nil {
 							if err = MustEqual(nn, len(pkt.Body), io.ErrShortWrite); err == nil {
-								svc.when.Store(time.Now().UnixMilli())
+								svc.when.Store(int64(time.Since(started)))
 							}
 						}
 					}
 				}
 			}
 		} else if isTimeout(err) {
-			err = nil
-			timeout := time.Now().Add(-UDPTimeout).UnixMilli()
+			timeout := int64((time.Since(started) - UDPTimeout))
 			for _, svc := range udpServicers {
 				if when := svc.when.Load(); when < timeout {
 					svc.target.Close()
 					delete(udpServicers, svc.targetaddr)
 				}
 			}
+			err = clientUDPConn.SetReadDeadline(time.Now().Add(time.Second))
 		}
 	}
 
