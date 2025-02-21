@@ -96,6 +96,40 @@ func TestRead(t *testing.T) {
 	}
 }
 
+func TestTCPInvalidHostname(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	// backend server which we'll use SOCKS5 to connect to
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	backendServerPort := listener.Addr().(*net.TCPAddr).Port
+	go backendServer(listener)
+
+	// SOCKS5 server
+	socks5, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	socks5Port := socks5.Addr().(*net.TCPAddr).Port
+	go socks5Server(ctx, socks5)
+
+	addr := fmt.Sprintf("localhost:%d", socks5Port)
+	socksDialer, err := proxy.SOCKS5("tcp", addr, nil, proxy.Direct)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	addr = fmt.Sprintf("!:%d", backendServerPort)
+	conn, err := socksDialer.Dial("tcp", addr)
+	if err == nil {
+		conn.Close()
+		t.Fatal(err)
+	}
+}
+
 func TestReadPassword(t *testing.T) {
 	// backend server which we'll use SOCKS5 to connect to
 	ln, err := net.Listen("tcp", ":0")
@@ -173,7 +207,7 @@ func TestReadPassword(t *testing.T) {
 	}
 }
 
-func TestInvalidCommand(t *testing.T) {
+func TestInvalidUDPCommand(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
@@ -201,7 +235,8 @@ func TestInvalidCommand(t *testing.T) {
 	if n != 2 || buf[0] != socks5.Socks5Version || buf[1] != byte(socks5.NoAuthRequired) {
 		t.Fatalf("got: %q want: 0x05 0x00", buf[:n])
 	}
-	targetAddr := socks5.Addr{Type: socks5.Ipv4, Addr: "0.0.0.0", Port: 0}
+
+	targetAddr := socks5.Addr{Type: socks5.DomainName, Addr: "!", Port: 0}
 	targetAddrPkt, err := targetAddr.MarshalBinary()
 	if err != nil {
 		t.Fatal(err)

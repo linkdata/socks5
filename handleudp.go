@@ -35,7 +35,6 @@ func (c *client) handleUDP(ctx context.Context) (err error) {
 						errchan := make(chan error, 1)
 						go c.serveUDP(ctx, errchan, c.clientConn, clientUDPConn)
 						err = <-errchan
-						return
 					}
 				}
 			}
