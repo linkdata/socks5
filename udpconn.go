@@ -23,7 +23,7 @@ func NewUDPConn(raw net.Conn, address string) (c *UDPConn, err error) {
 	var addr Addr
 	if addr, err = AddrFromString(address); err == nil {
 		c = &UDPConn{
-			targetAddr: addr,
+			targetAddr: udpAddr{addr},
 			Conn:       raw,
 		}
 	}
@@ -81,5 +81,5 @@ func (c *UDPConn) Write(b []byte) (int, error) {
 }
 
 func (c *UDPConn) RemoteAddr() net.Addr {
-	return udpAddr{c.targetAddr}
+	return c.targetAddr
 }
