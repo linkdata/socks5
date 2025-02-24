@@ -254,11 +254,13 @@ func TestInvalidUDPCommand(t *testing.T) {
 	}
 }
 
+func init() {
+	socks5.UDPTimeout = time.Millisecond * 10
+}
+
 func TestUDP(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-
-	socks5.UDPTimeout = time.Millisecond * 10
 
 	// backend UDP server which we'll use SOCKS5 to connect to
 	newUDPEchoServer := func() net.PacketConn {
