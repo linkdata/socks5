@@ -11,8 +11,7 @@ import (
 )
 
 type Dialer struct {
-	ProxyNetwork  string        // ProxyNetwork network between a proxy server and a client
-	ProxyAddress  string        // ProxyAddress proxy server address
+	ProxyAddress  string        // proxy server address
 	ProxyDialer   ContextDialer // dialer to use when dialing the proxy, nil for DefaultProxyDialer
 	ProxyUsername string        // user name
 	ProxyPassword string        // user password
@@ -80,7 +79,7 @@ func (d *Dialer) resolve(ctx context.Context, hostport string) (ipandport string
 
 func (d *Dialer) do(ctx context.Context, cmd CommandType, address string) (conn net.Conn, err error) {
 	if address, err = d.resolve(ctx, address); err == nil {
-		if conn, err = d.proxyDial(ctx, d.ProxyNetwork, d.ProxyAddress); err == nil {
+		if conn, err = d.proxyDial(ctx, "tcp", d.ProxyAddress); err == nil {
 			conn, err = d.connect(ctx, conn, cmd, address)
 		}
 	}
@@ -114,31 +113,14 @@ func (d *Dialer) connect(ctx context.Context, proxyconn net.Conn, cmd CommandTyp
 				conn = proxyconn
 			}
 		case AssociateCommand:
-			var targetHost string
-			var targetPort uint16
-			if targetHost, targetPort, err = SplitHostPort(address); err == nil {
-				var proxyaddr Addr
-				if proxyaddr, err = d.connectCommand(proxyconn, AssociateCommand, ":0"); err == nil {
-					var proxyHost string
-					var proxyPort uint16
-					if proxyHost, proxyPort, err = SplitHostPort(proxyaddr.String()); err == nil {
-						if conn, err = d.proxyDial(ctx, "udp", ":0"); err == nil {
-							udpConn := conn.(net.PacketConn)
-							targetAddr := &net.UDPAddr{
-								IP:   net.ParseIP(targetHost),
-								Port: int(targetPort),
-							}
-							proxyAddr := &net.UDPAddr{
-								IP:   net.ParseIP(proxyHost),
-								Port: int(proxyPort),
-							}
-							if conn, err = NewUDPConn(udpConn, proxyAddr, targetAddr); err == nil {
-								go func() {
-									defer conn.Close()
-									_, _ = io.Copy(io.Discard, proxyconn)
-								}()
-							}
-						}
+			var proxyaddr Addr
+			if proxyaddr, err = d.connectCommand(proxyconn, AssociateCommand, ":0"); err == nil {
+				if conn, err = d.proxyDial(ctx, "udp", proxyaddr.String()); err == nil {
+					if conn, err = NewUDPConn(conn, address); err == nil {
+						go func() {
+							defer conn.Close()
+							_, _ = io.Copy(io.Discard, proxyconn)
+						}()
 					}
 				}
 			}

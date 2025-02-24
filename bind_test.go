@@ -23,12 +23,9 @@ func TestBind(t *testing.T) {
 	var server socks5.Server
 	go server.Serve(ctx, listen)
 
-	dial := &socks5.Dialer{
-		ProxyNetwork: "tcp",
-		ProxyAddress: listen.Addr().String(),
-	}
+	dial := &socks5.Dialer{ProxyAddress: listen.Addr().String()}
 
-	listener, err := dial.Listen(ctx, "tcp", ":10000")
+	listener, err := dial.Listen(ctx, "tcp", ":10001")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +38,7 @@ func TestBind(t *testing.T) {
 
 	time.Sleep(time.Second / 10)
 
-	resp, err := http.Get("http://127.0.0.1:10000")
+	resp, err := http.Get("http://127.0.0.1:10001")
 	if err != nil {
 		t.Fatal(err)
 	}
