@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/netip"
 	"strconv"
+	"strings"
 )
 
 // AddrType are the bytes sent in SOCKS5 packets
@@ -39,11 +40,10 @@ var (
 
 var ZeroAddr = Addr{Type: Ipv4, Addr: "0.0.0.0", Port: 0}
 
-func MakeAddr(s string, port uint16) (addr Addr) {
-	if s != "" {
-		addr.Addr = s
-		addr.Port = port
-		if ipaddr, err := netip.ParseAddr(s); err == nil {
+func AddrFromHostPort(host string, port uint16) (addr Addr) {
+	if host != "" {
+		addr.Addr = host
+		if ipaddr, err := netip.ParseAddr(host); err == nil {
 			ipaddr = ipaddr.Unmap()
 			if ipaddr.Is4() {
 				addr.Type = Ipv4
@@ -56,10 +56,20 @@ func MakeAddr(s string, port uint16) (addr Addr) {
 	} else {
 		addr = ZeroAddr
 	}
+	addr.Port = port
 	return
 }
 
-func ParseAddr(r io.Reader) (addr Addr, err error) {
+func AddrFromString(s string) (addr Addr, err error) {
+	var host string
+	var port uint16
+	if host, port, err = SplitHostPort(s); err == nil {
+		addr = AddrFromHostPort(host, port)
+	}
+	return
+}
+
+func ReadAddr(r io.Reader) (addr Addr, err error) {
 	var addrTypeData [1]byte
 	if _, err = io.ReadFull(r, addrTypeData[:]); err == nil {
 		addr.Type = AddrType(addrTypeData[0])
@@ -96,6 +106,10 @@ func ParseAddr(r io.Reader) (addr Addr, err error) {
 	return
 }
 
+func ParseAddr(s string) (addr Addr, err error) {
+	return ReadAddr(strings.NewReader(s))
+}
+
 func requireIPv4(s string) (addr netip.Addr, err error) {
 	if addr, err = netip.ParseAddr(s); err == nil {
 		addr = addr.Unmap()
@@ -115,15 +129,6 @@ func requireIPv6(s string) (addr netip.Addr, err error) {
 	return
 }
 
-func requireDomain(s string) (addr string, err error) {
-	if len(s) < 256 {
-		addr = s
-	} else {
-		err = ErrInvalidDomainName
-	}
-	return
-}
-
 func (s Addr) AppendBinary(inbuf []byte) (outbuf []byte, err error) {
 	var data []byte
 	var addr netip.Addr
@@ -133,10 +138,9 @@ func (s Addr) AppendBinary(inbuf []byte) (outbuf []byte, err error) {
 			data, err = addr.AppendBinary(data)
 		}
 	case DomainName:
-		var dom string
-		if dom, err = requireDomain(s.Addr); err == nil {
-			data = append(data, byte(len(dom)))
-			data = append(data, []byte(dom)...)
+		if err = MustStr(s.Addr, ErrInvalidDomainName); err == nil {
+			data = append(data, byte(len(s.Addr)))
+			data = append(data, []byte(s.Addr)...)
 		}
 	case Ipv6:
 		if addr, err = requireIPv6(s.Addr); err == nil {
@@ -157,6 +161,20 @@ func (s Addr) MarshalBinary() ([]byte, error) {
 	return s.AppendBinary(nil)
 }
 
+func (s Addr) Network() string {
+	return "tcp"
+}
+
 func (s Addr) String() string {
 	return net.JoinHostPort(s.Addr, strconv.Itoa(int(s.Port)))
+}
+
+func (s Addr) WriteTo(w io.Writer) (n int64, err error) {
+	var b []byte
+	if b, err = s.AppendBinary(b); err == nil {
+		var nn int
+		nn, err = w.Write(b)
+		n = int64(nn)
+	}
+	return
 }

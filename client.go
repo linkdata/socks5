@@ -69,10 +69,12 @@ func (c *client) handleRequest(ctx context.Context) (err error) {
 	replyCode := GeneralFailure
 	if req, err = ReadRequest(c.clientConn); err == nil {
 		switch req.Cmd {
-		case Connect:
+		case ConnectCommand:
 			err = c.handleTCP(ctx, req.Addr.String())
-		case UdpAssociate:
+		case AssociateCommand:
 			err = c.handleUDP(ctx)
+		case BindCommand:
+			err = c.handleBind(ctx, req.Addr.String())
 		default:
 			replyCode = CommandNotSupported
 			err = ErrUnsupportedCommand

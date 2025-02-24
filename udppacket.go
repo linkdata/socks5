@@ -26,7 +26,7 @@ func ParseUDPPacket(data []byte) (pkt *UDPPacket, err error) {
 	if err = requireValidHeader(data); err == nil {
 		reader := bytes.NewReader(data[3:])
 		var addr Addr
-		if addr, err = ParseAddr(reader); err == nil {
+		if addr, err = ReadAddr(reader); err == nil {
 			pkt = &UDPPacket{
 				Addr: addr,
 				Body: data[len(data)-reader.Len():],

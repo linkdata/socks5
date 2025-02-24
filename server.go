@@ -34,27 +34,9 @@ type CommandType byte
 
 // The set of valid SOCKS5 commands as described in RFC 1928.
 const (
-	Connect      CommandType = 1
-	Bind         CommandType = 2
-	UdpAssociate CommandType = 3
-)
-
-// ReplyCode are the bytes sent in SOCKS5 packets
-// that represent replies from the server to a client
-// request.
-type ReplyCode byte
-
-// The set of valid SOCKS5 reply types as per the RFC 1928.
-const (
-	Success              ReplyCode = 0
-	GeneralFailure       ReplyCode = 1
-	ConnectionNotAllowed ReplyCode = 2
-	NetworkUnreachable   ReplyCode = 3
-	HostUnreachable      ReplyCode = 4
-	ConnectionRefused    ReplyCode = 5
-	TtlExpired           ReplyCode = 6
-	CommandNotSupported  ReplyCode = 7
-	AddrTypeNotSupported ReplyCode = 8
+	ConnectCommand   CommandType = 1
+	BindCommand      CommandType = 2
+	AssociateCommand CommandType = 3
 )
 
 // Server is a SOCKS5 proxy server.

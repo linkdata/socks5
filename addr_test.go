@@ -95,7 +95,7 @@ func TestAddr_MarshalBinary(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Addr.MarshalBinary()\n got %#v\nwant %#v\n", got, tt.want)
 			}
-			gotaddr, err := socks5.ParseAddr(bytes.NewReader(got))
+			gotaddr, err := socks5.ReadAddr(bytes.NewReader(got))
 			if !tt.wantErr {
 				if err != nil {
 					t.Errorf("ParseAddr() error = %v", err)
@@ -125,7 +125,7 @@ func TestAddr_String(t *testing.T) {
 }
 
 func TestParseAddr(t *testing.T) {
-	_, err := socks5.ParseAddr(bytes.NewReader([]byte{0x0, 0x7f, 0x0, 0x0, 0x1, 0x1f, 0x90}))
+	_, err := socks5.ReadAddr(bytes.NewReader([]byte{0x0, 0x7f, 0x0, 0x0, 0x1, 0x1f, 0x90}))
 	if err != socks5.ErrUnsupportedAddressType {
 		t.Error(err)
 	}
@@ -164,7 +164,7 @@ func TestMakeAddr(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if gotAddr := socks5.MakeAddr(tt.s, tt.port); !reflect.DeepEqual(gotAddr, tt.wantAddr) {
+			if gotAddr := socks5.AddrFromHostPort(tt.s, tt.port); !reflect.DeepEqual(gotAddr, tt.wantAddr) {
 				t.Errorf("MakeAddr() = %v, want %v", gotAddr, tt.wantAddr)
 			}
 		})

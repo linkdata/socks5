@@ -314,7 +314,7 @@ func TestUDP(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = conn.Write(append([]byte{socks5.Socks5Version, byte(socks5.UdpAssociate), 0x00}, targetAddrPkt...)) // client reqeust
+		_, err = conn.Write(append([]byte{socks5.Socks5Version, byte(socks5.AssociateCommand), 0x00}, targetAddrPkt...)) // client reqeust
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -326,7 +326,7 @@ func TestUDP(t *testing.T) {
 		if n < 3 || !bytes.Equal(buf[:3], []byte{socks5.Socks5Version, 0x00, 0x00}) {
 			t.Fatalf("got: %q want: 0x05 0x00 0x00", buf[:n])
 		}
-		udpProxySocksAddr, err := socks5.ParseAddr(bytes.NewReader(buf[3:n]))
+		udpProxySocksAddr, err := socks5.ReadAddr(bytes.NewReader(buf[3:n]))
 		if err != nil {
 			t.Fatal(err)
 		}

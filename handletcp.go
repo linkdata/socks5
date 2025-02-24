@@ -19,7 +19,7 @@ func (c *client) handleTCP(ctx context.Context, addr string) (err error) {
 		if serverAddr, serverPort, err = SplitHostPort(localAddr); err == nil {
 			res := &Response{
 				Reply: Success,
-				Addr:  MakeAddr(serverAddr, serverPort),
+				Addr:  AddrFromHostPort(serverAddr, serverPort),
 			}
 			var buf []byte
 			if buf, err = res.MarshalBinary(); err == nil {

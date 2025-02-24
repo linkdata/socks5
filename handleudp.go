@@ -27,7 +27,7 @@ func (c *client) handleUDP(ctx context.Context) (err error) {
 			if bindAddr, bindPort, err = SplitHostPort(clientUDPConn.LocalAddr().String()); err == nil {
 				res := &Response{
 					Reply: Success,
-					Addr:  MakeAddr(bindAddr, bindPort),
+					Addr:  AddrFromHostPort(bindAddr, bindPort),
 				}
 				var buf []byte
 				if buf, err = res.MarshalBinary(); err == nil {

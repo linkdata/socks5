@@ -19,7 +19,7 @@ func ReadRequest(r io.Reader) (req *Request, err error) {
 	if _, err = io.ReadFull(r, bb); err == nil {
 		if err = MustEqual(bb[0], Socks5Version, ErrVersion); err == nil {
 			var addr Addr
-			if addr, err = ParseAddr(r); err == nil {
+			if addr, err = ReadAddr(r); err == nil {
 				req = &Request{
 					Addr: addr,
 					Cmd:  CommandType(bb[1]),
