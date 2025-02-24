@@ -148,7 +148,7 @@ func TestServerAndClientWithDomain(t *testing.T) {
 	proxy := socks5.Server{}
 	go proxy.Serve(ctx, listen)
 
-	dial := socks5.Dialer{ProxyAddress: listen.Addr().String(), ProxyUsername: "u", ProxyPassword: "p"}
+	dial := socks5.Dialer{ProxyAddress: listen.Addr().String(), LocalResolve: true}
 	if err != nil {
 		t.Fatal(err)
 	}
