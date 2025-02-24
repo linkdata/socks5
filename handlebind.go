@@ -15,7 +15,7 @@ func sendReply(w io.Writer, resp ReplyCode, addr Addr) (err error) {
 	return
 }
 
-func (c *client) handleBind(ctx context.Context, addr string) (err error) {
+func (c *session) handleBind(ctx context.Context, addr string) (err error) {
 	var lc net.ListenConfig
 	var listener net.Listener
 	if listener, err = lc.Listen(ctx, "tcp", addr); err == nil {

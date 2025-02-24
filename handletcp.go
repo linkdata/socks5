@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func (c *client) handleTCP(ctx context.Context, addr string) (err error) {
+func (c *session) handleTCP(ctx context.Context, addr string) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	var srv net.Conn

@@ -16,7 +16,7 @@ const (
 
 var UDPTimeout = time.Second * 10
 
-func (c *client) handleUDP(ctx context.Context) (err error) {
+func (c *session) handleUDP(ctx context.Context) (err error) {
 	var host string
 	if host, _, err = net.SplitHostPort(c.clientConn.LocalAddr().String()); err == nil {
 		var clientUDPConn net.PacketConn
@@ -72,7 +72,7 @@ func (svc *udpService) serve() {
 	}
 }
 
-func (c *client) serveUDP(ctx context.Context, errchan chan<- error, clientTCPConn net.Conn, clientUDPConn net.PacketConn) {
+func (c *session) serveUDP(ctx context.Context, errchan chan<- error, clientTCPConn net.Conn, clientUDPConn net.PacketConn) {
 	go func() {
 		_, _ = io.Copy(io.Discard, clientTCPConn)
 		_ = clientUDPConn.Close()
