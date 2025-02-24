@@ -247,6 +247,14 @@ func TestUDP2(t *testing.T) {
 	if !bytes.Equal(want, got) {
 		t.Fail()
 	}
+
+	if x := conn.RemoteAddr().String(); x != packet.LocalAddr().String() {
+		t.Error(x)
+	}
+
+	if x := conn.RemoteAddr().Network(); x != packet.LocalAddr().Network() {
+		t.Error(x)
+	}
 }
 
 func TestBind2(t *testing.T) {
