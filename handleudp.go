@@ -16,9 +16,9 @@ const (
 
 var UDPTimeout = time.Second * 10
 
-func (c *session) handleUDP(ctx context.Context) (err error) {
+func (sess *session) handleUDP(ctx context.Context) (err error) {
 	var host string
-	if host, _, err = net.SplitHostPort(c.conn.LocalAddr().String()); err == nil {
+	if host, _, err = net.SplitHostPort(sess.conn.LocalAddr().String()); err == nil {
 		var clientUDPConn net.PacketConn
 		if clientUDPConn, err = net.ListenPacket("udp", net.JoinHostPort(host, "0")); err == nil {
 			defer clientUDPConn.Close()
@@ -31,16 +31,14 @@ func (c *session) handleUDP(ctx context.Context) (err error) {
 				}
 				var buf []byte
 				if buf, err = res.MarshalBinary(); err == nil {
-					if _, err = c.conn.Write(buf); err == nil {
-						errchan := make(chan error, 1)
-						go c.serveUDP(ctx, errchan, c.conn, clientUDPConn)
-						err = <-errchan
+					if _, err = sess.conn.Write(buf); err == nil {
+						err = sess.serveUDP(ctx, sess.conn, clientUDPConn)
 					}
 				}
 			}
 		}
 	}
-	return c.fail(GeneralFailure, err)
+	return sess.fail(GeneralFailure, err)
 }
 
 type udpService struct {
@@ -72,7 +70,7 @@ func (svc *udpService) serve() {
 	}
 }
 
-func (c *session) serveUDP(ctx context.Context, errchan chan<- error, clientTCPConn net.Conn, clientUDPConn net.PacketConn) {
+func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUDPConn net.PacketConn) (err error) {
 	go func() {
 		_, _ = io.Copy(io.Discard, clientTCPConn)
 		_ = clientUDPConn.Close()
@@ -84,13 +82,11 @@ func (c *session) serveUDP(ctx context.Context, errchan chan<- error, clientTCPC
 		for _, svc := range udpServicers {
 			_ = svc.target.Close()
 		}
-		close(errchan)
 	}()
 
 	var clientAddr net.Addr
 	var wantSource string
 	var buf [maxUdpPacket]byte
-	var err error
 
 	started := time.Now()
 	err = clientUDPConn.SetReadDeadline(started.Add(UDPTimeout / 10))
@@ -144,8 +140,7 @@ func (c *session) serveUDP(ctx context.Context, errchan chan<- error, clientTCPC
 		}
 	}
 
-	c.srv.logf("udp transfer: handle udp request fail: %v", err)
-	errchan <- err
+	return
 }
 
 func isTimeout(err error) bool {
