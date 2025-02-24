@@ -24,7 +24,7 @@ func (c *session) handleBind(ctx context.Context, addr string) (err error) {
 			if err = sendReply(c.conn, Success, addr); err == nil {
 				var conn net.Conn
 				if conn, err = listener.Accept(); err == nil {
-					listener.Close()
+					_ = listener.Close()
 					var remoteAddr Addr
 					if remoteAddr, err = AddrFromString(conn.RemoteAddr().String()); err == nil {
 						if err = sendReply(c.conn, Success, remoteAddr); err == nil {
@@ -45,7 +45,7 @@ func (c *session) handleBind(ctx context.Context, addr string) (err error) {
 				}
 			}
 		}
-		listener.Close()
+		_ = listener.Close()
 	}
 	_ = sendReply(c.conn, GeneralFailure, ZeroAddr)
 	return
