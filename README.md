@@ -4,4 +4,9 @@
 [![Docs](https://godoc.org/github.com/linkdata/socks5?status.svg)](https://godoc.org/github.com/linkdata/socks5)
 
 # socks5
-SOCKS5 server
+SOCKS5 client and server
+
+- [x] Support for the CONNECT command
+- [x] Support for the BIND command
+- [x] Support for the ASSOCIATE command
+- [x] Uses ContextDialer's for easy interoperation with other packages
