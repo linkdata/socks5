@@ -21,21 +21,21 @@ func (c *session) handleBind(ctx context.Context, addr string) (err error) {
 	if listener, err = lc.Listen(ctx, "tcp", addr); err == nil {
 		var addr Addr
 		if addr, err = AddrFromString(listener.Addr().String()); err == nil {
-			if err = sendReply(c.clientConn, Success, addr); err == nil {
+			if err = sendReply(c.conn, Success, addr); err == nil {
 				var conn net.Conn
 				if conn, err = listener.Accept(); err == nil {
 					listener.Close()
 					var remoteAddr Addr
 					if remoteAddr, err = AddrFromString(conn.RemoteAddr().String()); err == nil {
-						if err = sendReply(c.clientConn, Success, remoteAddr); err == nil {
+						if err = sendReply(c.conn, Success, remoteAddr); err == nil {
 							defer conn.Close()
 							ctx, cancel := context.WithCancel(ctx)
 							go func() {
-								_, _ = io.Copy(c.clientConn, conn)
+								_, _ = io.Copy(c.conn, conn)
 								cancel()
 							}()
 							go func() {
-								_, _ = io.Copy(conn, c.clientConn)
+								_, _ = io.Copy(conn, c.conn)
 								cancel()
 							}()
 							<-ctx.Done()
@@ -47,6 +47,6 @@ func (c *session) handleBind(ctx context.Context, addr string) (err error) {
 		}
 		listener.Close()
 	}
-	_ = sendReply(c.clientConn, GeneralFailure, ZeroAddr)
+	_ = sendReply(c.conn, GeneralFailure, ZeroAddr)
 	return
 }

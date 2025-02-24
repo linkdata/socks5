@@ -98,7 +98,7 @@ func (s *Server) listen(ctx context.Context, errchan chan<- error, l net.Listene
 
 func (s *Server) startConn(ctx context.Context, clientConn net.Conn) {
 	defer clientConn.Close()
-	conn := &session{clientConn: clientConn, srv: s}
+	conn := &session{conn: clientConn, srv: s}
 	if err := conn.serve(ctx); err != nil {
 		s.logf("client connection failed: %v", err)
 	}

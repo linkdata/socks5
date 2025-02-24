@@ -7,8 +7,8 @@ import (
 )
 
 type session struct {
-	srv        *Server
-	clientConn net.Conn
+	srv  *Server  // server we belong to
+	conn net.Conn // client session connection
 }
 
 var ErrUnsupportedCommand = errors.New("unsupported command")
@@ -27,14 +27,14 @@ func (sess *session) serve(ctx context.Context) (err error) {
 func (sess *session) verifyAuth(authMethod AuthMethod) (err error) {
 	if authMethod == PasswordAuth {
 		var user, pwd string
-		if user, pwd, err = parseClientAuth(sess.clientConn); err == nil {
+		if user, pwd, err = parseClientAuth(sess.conn); err == nil {
 			if user == sess.srv.Username && pwd == sess.srv.Password {
-				_, err = sess.clientConn.Write([]byte{1, 0}) // auth success
+				_, err = sess.conn.Write([]byte{1, byte(Success)}) // auth success
 				return
 			}
 			err = ErrAuthFailed
 		}
-		_, _ = sess.clientConn.Write([]byte{1, 1}) // auth error
+		_, _ = sess.conn.Write([]byte{1, byte(GeneralFailure)}) // auth error
 	}
 	return
 }
@@ -54,20 +54,20 @@ func (sess *session) negotiateAuth() (authMethod AuthMethod, err error) {
 		authMethod = PasswordAuth
 	}
 	var authMethods []AuthMethod
-	if authMethods, err = readClientGreeting(sess.clientConn); err == nil {
+	if authMethods, err = readClientGreeting(sess.conn); err == nil {
 		if err = requireAuthMethod(authMethod, authMethods); err == nil {
-			_, err = sess.clientConn.Write([]byte{Socks5Version, byte(authMethod)})
+			_, err = sess.conn.Write([]byte{Socks5Version, byte(authMethod)})
 			return
 		}
 	}
-	_, _ = sess.clientConn.Write([]byte{Socks5Version, byte(NoAcceptableAuth)})
+	_, _ = sess.conn.Write([]byte{Socks5Version, byte(NoAcceptableAuth)})
 	return
 }
 
 func (sess *session) handleRequest(ctx context.Context) (err error) {
 	var req *Request
 	replyCode := GeneralFailure
-	if req, err = ReadRequest(sess.clientConn); err == nil {
+	if req, err = ReadRequest(sess.conn); err == nil {
 		switch req.Cmd {
 		case ConnectCommand:
 			err = sess.handleTCP(ctx, req.Addr.String())
@@ -87,7 +87,7 @@ func (sess *session) fail(replyCode ReplyCode, err error) error {
 	if err != nil {
 		rsp := Response{Addr: ZeroAddr, Reply: replyCode}
 		buf, _ := rsp.MarshalBinary()
-		_, _ = sess.clientConn.Write(buf)
+		_, _ = sess.conn.Write(buf)
 	}
 	return err
 }
