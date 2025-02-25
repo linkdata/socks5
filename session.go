@@ -7,8 +7,8 @@ import (
 )
 
 type session struct {
-	srv  *Server  // server we belong to
-	conn net.Conn // client session connection
+	*Server          // server we belong to
+	conn    net.Conn // client session connection
 }
 
 var ErrUnsupportedCommand = errors.New("unsupported command")
@@ -28,7 +28,7 @@ func (sess *session) verifyAuth(authMethod AuthMethod) (err error) {
 	if authMethod == PasswordAuth {
 		var user, pwd string
 		if user, pwd, err = parseClientAuth(sess.conn); err == nil {
-			if user == sess.srv.Username && pwd == sess.srv.Password {
+			if user == sess.Server.Username && pwd == sess.Server.Password {
 				_, err = sess.conn.Write([]byte{1, byte(Success)}) // auth success
 				return
 			}
@@ -50,7 +50,7 @@ func requireAuthMethod(authMethod AuthMethod, authMethods []AuthMethod) (err err
 
 func (sess *session) negotiateAuth() (authMethod AuthMethod, err error) {
 	authMethod = NoAuthRequired
-	if sess.srv.Username != "" || sess.srv.Password != "" {
+	if sess.Server.Username != "" || sess.Server.Password != "" {
 		authMethod = PasswordAuth
 	}
 	var authMethods []AuthMethod
@@ -70,11 +70,11 @@ func (sess *session) handleRequest(ctx context.Context) (err error) {
 	if req, err = ReadRequest(sess.conn); err == nil {
 		switch req.Cmd {
 		case ConnectCommand:
-			err = sess.handleTCP(ctx, req.Addr.String())
+			err = sess.handleCONNECT(ctx, req.Addr.String())
 		case AssociateCommand:
-			err = sess.handleUDP(ctx)
+			err = sess.handleASSOCIATE(ctx)
 		case BindCommand:
-			err = sess.handleBind(ctx, req.Addr.String())
+			err = sess.handleBIND(ctx, req.Addr.String())
 		default:
 			replyCode = CommandNotSupported
 			err = ErrUnsupportedCommand

@@ -29,6 +29,7 @@ func TestBind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	go func() {
 		httperr := http.Serve(listener, nil)
 		if httperr != nil {

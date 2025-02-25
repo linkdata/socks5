@@ -103,7 +103,7 @@ func (d *Dialer) connect(ctx context.Context, proxyconn net.Conn, cmd CommandTyp
 	if err = d.connectAuth(proxyconn); err == nil {
 		switch cmd {
 		default:
-			return nil, fmt.Errorf("unsupported command %v", cmd)
+			return nil, ErrUnsupportedCommand
 		case ConnectCommand:
 			if _, err = d.connectCommand(proxyconn, ConnectCommand, address); err == nil {
 				conn = proxyconn
@@ -183,6 +183,7 @@ func (d *Dialer) connectCommand(conn net.Conn, cmd CommandType, address string) 
 		if b, err = addr.AppendBinary(b); err == nil {
 			if _, err = conn.Write(b); err == nil {
 				proxyaddr, err = d.readReply(conn)
+				err = Note(err, "connectCommand")
 			}
 		}
 	}
@@ -193,7 +194,7 @@ func (d *Dialer) readReply(conn net.Conn) (addr Addr, err error) {
 	var header [3]byte
 	if _, err = io.ReadFull(conn, header[:]); err == nil {
 		if err = MustEqual(header[0], Socks5Version, ErrVersion); err == nil {
-			if err = MustEqual(ReplyCode(header[1]), Success, ErrUnsupportedCommand); err == nil {
+			if err = MustEqual(ReplyCode(header[1]), Success, fmt.Errorf("reply code %v", header[1])); err == nil {
 				addr, err = ReadAddr(conn)
 			}
 		}

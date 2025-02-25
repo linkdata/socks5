@@ -278,7 +278,10 @@ func TestBind2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	go http.Serve(listener, nil)
+	go func() {
+		httperror := http.Serve(listener, nil)
+		t.Errorf("%v (%#v)", httperror, httperror)
+	}()
 	time.Sleep(time.Second / 10)
 	resp, err := http.Get("http://127.0.0.1:10000")
 	if err != nil {

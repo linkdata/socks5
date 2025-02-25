@@ -122,6 +122,9 @@ func TestAddr_String(t *testing.T) {
 	if x := addr.String(); x != "foo.bar:1234" {
 		t.Error(x)
 	}
+	if x := addr.Network(); x != "tcp" {
+		t.Error(x)
+	}
 }
 
 func TestParseAddr(t *testing.T) {

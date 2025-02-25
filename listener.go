@@ -18,6 +18,7 @@ func (l *listener) Accept() (conn net.Conn, err error) {
 		if addr, err = l.d.readReply(conn); err == nil {
 			conn = &connect{Conn: conn, remoteAddr: addr}
 		}
+		err = Note(err, "listener.Accept")
 	}
 	return
 }

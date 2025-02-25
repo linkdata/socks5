@@ -1,6 +1,7 @@
 package socks5
 
 import (
+	"errors"
 	"strconv"
 )
 
@@ -22,27 +23,35 @@ const (
 	AddrTypeNotSupported ReplyCode = 8
 )
 
+var (
+	ErrGeneralFailure       = errors.New("general failure")
+	ErrConnectionNotAllowed = errors.New("connection not allowed")
+	ErrNetworkUnreachable   = errors.New("network unreachable")
+	ErrHostUnreachable      = errors.New("host unreachable")
+	ErrConnectionRefused    = errors.New("connection refused")
+	ErrTtlExpired           = errors.New("ttl expired")
+	ErrCommandNotSupported  = errors.New("command not supported")
+	ErrAddrTypeNotSupported = errors.New("address type not supported")
+)
+
+var replyCodeError = map[ReplyCode]error{
+	Success:              nil,
+	GeneralFailure:       ErrGeneralFailure,
+	ConnectionNotAllowed: ErrConnectionNotAllowed,
+	NetworkUnreachable:   ErrNetworkUnreachable,
+	HostUnreachable:      ErrHostUnreachable,
+	ConnectionRefused:    ErrConnectionRefused,
+	TtlExpired:           ErrTtlExpired,
+	CommandNotSupported:  ErrCommandNotSupported,
+	AddrTypeNotSupported: ErrAddrTypeNotSupported,
+}
+
 func (code ReplyCode) String() string {
-	switch code {
-	case Success:
-		return "success"
-	case GeneralFailure:
-		return "general failure"
-	case ConnectionNotAllowed:
-		return "connection not allowed"
-	case NetworkUnreachable:
-		return "network unreachable"
-	case HostUnreachable:
-		return "host unreachable"
-	case ConnectionRefused:
-		return "connection refused"
-	case TtlExpired:
-		return "TTL expired"
-	case CommandNotSupported:
-		return "command not supported"
-	case AddrTypeNotSupported:
-		return "address type not supported"
-	default:
-		return strconv.Itoa(int(code))
+	if err, ok := replyCodeError[code]; ok {
+		if err == nil {
+			return "success"
+		}
+		return err.Error()
 	}
+	return strconv.Itoa(int(code))
 }

@@ -16,7 +16,7 @@ const (
 
 var UDPTimeout = time.Second * 10
 
-func (sess *session) handleUDP(ctx context.Context) (err error) {
+func (sess *session) handleASSOCIATE(ctx context.Context) (err error) {
 	var host string
 	if host, _, err = net.SplitHostPort(sess.conn.LocalAddr().String()); err == nil {
 		var clientUDPConn net.PacketConn
@@ -32,12 +32,14 @@ func (sess *session) handleUDP(ctx context.Context) (err error) {
 				var buf []byte
 				if buf, err = res.MarshalBinary(); err == nil {
 					if _, err = sess.conn.Write(buf); err == nil {
+						_ = sess.Debug && sess.LogDebug("ASSOCIATE", "session", sess.conn.RemoteAddr(), "listen", res.Addr)
 						err = sess.serveUDP(ctx, sess.conn, clientUDPConn)
 					}
 				}
 			}
 		}
 	}
+	sess.maybeLogError(err, "ASSOCIATE", "session", sess.conn.RemoteAddr())
 	return sess.fail(GeneralFailure, err)
 }
 
@@ -71,8 +73,10 @@ func (svc *udpService) serve() {
 }
 
 func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUDPConn net.PacketConn) (err error) {
+	var tcpClosed atomic.Bool
 	go func() {
 		_, _ = io.Copy(io.Discard, clientTCPConn)
+		tcpClosed.Store(true)
 		_ = clientUDPConn.Close()
 	}()
 
@@ -106,7 +110,7 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 					var svc *udpService
 					if svc = udpServicers[pkt.Addr]; svc == nil {
 						var targetConn net.Conn
-						if targetConn, err = c.srv.DialContext(ctx, "udp", pkt.Addr.String()); err == nil {
+						if targetConn, err = c.Server.DialContext(ctx, "udp", pkt.Addr.String()); err == nil {
 							svc = &udpService{
 								started:    started,
 								client:     clientUDPConn,
@@ -138,6 +142,10 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 			}
 			err = clientUDPConn.SetReadDeadline(time.Now().Add(UDPTimeout / 10))
 		}
+	}
+
+	if tcpClosed.Load() {
+		err = nil
 	}
 
 	return

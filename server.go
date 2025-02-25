@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
 	"net"
 	"strconv"
 )
@@ -41,10 +40,6 @@ const (
 
 // Server is a SOCKS5 proxy server.
 type Server struct {
-	// Logf optionally specifies the logger to use.
-	// If nil, the standard logger is used.
-	Logf func(string, ...any)
-
 	// Dialer optionally specifies the ContextDialer to use for outgoing connections.
 	// If nil, DefaultDialer will be used, which if not changed is a net.Dialer.
 	Dialer ContextDialer
@@ -52,6 +47,10 @@ type Server struct {
 	// Username and Password, if set, are the credential clients must provide.
 	Username string
 	Password string
+
+	// If not nil, use this Logger (compatible with log/slog)
+	Logger Logger
+	Debug  bool // if true, output debug logging using Logger.Info
 }
 
 var DefaultDialer ContextDialer = &net.Dialer{}
@@ -64,18 +63,39 @@ func (s *Server) DialContext(ctx context.Context, network, addr string) (net.Con
 	return dialer.DialContext(ctx, network, addr)
 }
 
-func (s *Server) logf(format string, args ...any) {
-	logf := s.Logf
-	if logf == nil {
-		logf = log.Printf
+var LogPrefix = "socks5: "
+
+func (s *Server) LogDebug(msg string, keyvaluepairs ...any) bool {
+	if s.Debug && s.Logger != nil {
+		s.Logger.Info(LogPrefix+msg, keyvaluepairs...)
 	}
-	logf(format, args...)
+	return true
+}
+
+func (s *Server) LogInfo(msg string, keyvaluepairs ...any) {
+	if s.Logger != nil {
+		s.Logger.Info(LogPrefix+msg, keyvaluepairs...)
+	}
+}
+
+func (s *Server) LogError(msg string, keyvaluepairs ...any) {
+	if s.Logger != nil {
+		s.Logger.Error(LogPrefix+msg, keyvaluepairs...)
+	}
+}
+
+func (s *Server) maybeLogError(err error, msg string, keyvaluepairs ...any) {
+	if err != nil && s.Logger != nil {
+		keyvaluepairs = append(keyvaluepairs, "error", err)
+		s.Logger.Error(LogPrefix+msg, keyvaluepairs...)
+	}
 }
 
 // Serve accepts and handles incoming connections on the given listener.
 func (s *Server) Serve(ctx context.Context, l net.Listener) (err error) {
 	defer l.Close()
 	errchan := make(chan error, 1)
+	s.LogInfo("listening", "addr", l.Addr())
 	go s.listen(ctx, errchan, l)
 	select {
 	case <-ctx.Done():
@@ -98,10 +118,10 @@ func (s *Server) listen(ctx context.Context, errchan chan<- error, l net.Listene
 
 func (s *Server) startConn(ctx context.Context, clientConn net.Conn) {
 	defer clientConn.Close()
-	conn := &session{conn: clientConn, srv: s}
-	if err := conn.serve(ctx); err != nil {
-		s.logf("client connection failed: %v", err)
-	}
+	_ = s.Debug && s.LogDebug("session start", "session", clientConn.RemoteAddr())
+	conn := &session{conn: clientConn, Server: s}
+	err := conn.serve(ctx)
+	_ = s.Debug && s.LogDebug("session stop", "session", clientConn.RemoteAddr(), "err", err)
 }
 
 var ErrInvalidPortNumber = errors.New("invalid port number")

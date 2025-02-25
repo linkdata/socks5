@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"testing"
 	"time"
@@ -408,4 +409,16 @@ func Test_SplitHostPort(t *testing.T) {
 	if err != socks5.ErrInvalidPortNumber {
 		t.Error(err)
 	}
+}
+
+func TestServer_Logging(t *testing.T) {
+	listen, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listen.Close()
+	proxy := socks5.Server{Logger: slog.Default(), Debug: true}
+	proxy.LogDebug("debug")
+	proxy.LogInfo("info")
+	proxy.LogError("error")
 }

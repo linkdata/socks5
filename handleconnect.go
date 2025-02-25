@@ -7,11 +7,14 @@ import (
 	"time"
 )
 
-func (c *session) handleTCP(ctx context.Context, addr string) (err error) {
+func (sess *session) handleCONNECT(ctx context.Context, addr string) (err error) {
+	_ = sess.Debug && sess.LogDebug("CONNECT", "session", sess.conn.RemoteAddr(), "target", addr)
+
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
+
 	var srv net.Conn
-	if srv, err = c.srv.DialContext(ctx, "tcp", addr); err == nil {
+	if srv, err = sess.Server.DialContext(ctx, "tcp", addr); err == nil {
 		defer srv.Close()
 		localAddr := srv.LocalAddr().String()
 		var serverAddr string
@@ -23,14 +26,14 @@ func (c *session) handleTCP(ctx context.Context, addr string) (err error) {
 			}
 			var buf []byte
 			if buf, err = res.MarshalBinary(); err == nil {
-				if _, err = c.conn.Write(buf); err == nil {
+				if _, err = sess.conn.Write(buf); err == nil {
 					errc := make(chan error, 2)
 					go func() {
-						_, err := io.Copy(c.conn, srv)
+						_, err := io.Copy(sess.conn, srv)
 						errc <- Note(err, "from backend to client")
 					}()
 					go func() {
-						_, err := io.Copy(srv, c.conn)
+						_, err := io.Copy(srv, sess.conn)
 						errc <- Note(err, "from client to backend")
 					}()
 					return <-errc
@@ -38,5 +41,5 @@ func (c *session) handleTCP(ctx context.Context, addr string) (err error) {
 			}
 		}
 	}
-	return c.fail(GeneralFailure, err)
+	return sess.fail(GeneralFailure, err)
 }

@@ -169,12 +169,16 @@ func (s Addr) String() string {
 	return net.JoinHostPort(s.Addr, strconv.Itoa(int(s.Port)))
 }
 
-func (s Addr) WriteTo(w io.Writer) (n int64, err error) {
-	var b []byte
-	if b, err = s.AppendBinary(b); err == nil {
-		var nn int
-		nn, err = w.Write(b)
-		n = int64(nn)
+func (s *Addr) ReplaceAny(hostport string) {
+	if s.Addr == "0.0.0.0" || s.Addr == "::" {
+		if nip, err := netip.ParseAddrPort(hostport); err == nil {
+			addr := nip.Addr()
+			addr = addr.Unmap()
+			s.Addr = addr.String()
+			s.Type = Ipv4
+			if addr.Is6() {
+				s.Type = Ipv6
+			}
+		}
 	}
-	return
 }
