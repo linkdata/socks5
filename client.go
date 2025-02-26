@@ -22,15 +22,15 @@ type Client struct {
 
 var DefaultProxyDialer ContextDialer = &net.Dialer{}
 
-func (d *Client) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+func (d *Client) DialContext(ctx context.Context, network, address string) (conn net.Conn, err error) {
+	err = ErrUnsupportedNetwork
 	switch network {
-	default:
-		return nil, fmt.Errorf("unsupported network %q", network)
 	case "tcp", "tcp4", "tcp6":
-		return d.do(ctx, ConnectCommand, address)
+		conn, err = d.do(ctx, ConnectCommand, address)
 	case "udp", "udp4", "udp6":
-		return d.do(ctx, AssociateCommand, address)
+		conn, err = d.do(ctx, AssociateCommand, address)
 	}
+	return
 }
 
 func (d *Client) Dial(network, address string) (net.Conn, error) {
