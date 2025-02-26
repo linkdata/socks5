@@ -26,39 +26,33 @@ var ErrAuthMethodNotSupported = errors.New("auth method not supported")
 var ErrIllegalUsername = errors.New("illegal username")
 var ErrIllegalPassword = errors.New("illegal password")
 
-func (d *Client) DialContext(ctx context.Context, network, address string) (conn net.Conn, err error) {
+func (cli *Client) DialContext(ctx context.Context, network, address string) (conn net.Conn, err error) {
 	err = ErrUnsupportedNetwork
 	switch network {
 	case "tcp", "tcp4", "tcp6":
-		conn, err = d.do(ctx, ConnectCommand, address)
+		conn, err = cli.do(ctx, ConnectCommand, address)
 	case "udp", "udp4", "udp6":
-		conn, err = d.do(ctx, AssociateCommand, address)
+		conn, err = cli.do(ctx, AssociateCommand, address)
 	}
 	return
 }
 
-func (d *Client) Dial(network, address string) (net.Conn, error) {
-	return d.DialContext(context.Background(), network, address)
+func (cli *Client) Dial(network, address string) (net.Conn, error) {
+	return cli.DialContext(context.Background(), network, address)
 }
 
-func (d *Client) Listen(ctx context.Context, network, address string) (l net.Listener, err error) {
-	err = ErrUnsupportedNetwork
-	switch network {
-	case "tcp", "tcp4", "tcp6":
-		l = &listener{ctx: ctx, d: d, address: address}
-		err = nil
-	}
-	return
+func (cli *Client) Listen(ctx context.Context, network, address string) (l net.Listener, err error) {
+	return newListener(ctx, cli, network, address)
 }
 
-func (d *Client) resolve(ctx context.Context, hostport string) (ipandport string, err error) {
+func (cli *Client) resolve(ctx context.Context, hostport string) (ipandport string, err error) {
 	ipandport = hostport
-	if d.LocalResolve {
+	if cli.LocalResolve {
 		var host, port string
 		if host, port, err = net.SplitHostPort(hostport); err == nil && host != "" {
 			if _, e := netip.ParseAddr(host); e != nil {
 				var addrs []string
-				if addrs, err = d.resolver().LookupHost(ctx, host); err == nil {
+				if addrs, err = cli.resolver().LookupHost(ctx, host); err == nil {
 					var useip netip.Addr
 					for _, s := range addrs {
 						if useip, err = netip.ParseAddr(s); err == nil {
@@ -79,18 +73,18 @@ func (d *Client) resolve(ctx context.Context, hostport string) (ipandport string
 	return
 }
 
-func (d *Client) do(ctx context.Context, cmd CommandType, address string) (conn net.Conn, err error) {
-	if address, err = d.resolve(ctx, address); err == nil {
-		if conn, err = d.proxyDial(ctx, "tcp", d.ProxyAddress); err == nil {
-			conn, err = d.connect(ctx, conn, cmd, address)
+func (cli *Client) do(ctx context.Context, cmd CommandType, address string) (conn net.Conn, err error) {
+	if address, err = cli.resolve(ctx, address); err == nil {
+		if conn, err = cli.proxyDial(ctx, "tcp", cli.ProxyAddress); err == nil {
+			conn, err = cli.connect(ctx, conn, cmd, address)
 		}
 	}
 	return
 }
 
-func (d *Client) connect(ctx context.Context, proxyconn net.Conn, cmd CommandType, address string) (conn net.Conn, err error) {
-	if d.DialTimeout != 0 {
-		deadline := time.Now().Add(d.DialTimeout)
+func (cli *Client) connect(ctx context.Context, proxyconn net.Conn, cmd CommandType, address string) (conn net.Conn, err error) {
+	if cli.DialTimeout != 0 {
+		deadline := time.Now().Add(cli.DialTimeout)
 		if d, ok := ctx.Deadline(); !ok || deadline.Before(d) {
 			subCtx, cancel := context.WithDeadline(ctx, deadline)
 			defer cancel()
@@ -102,22 +96,22 @@ func (d *Client) connect(ctx context.Context, proxyconn net.Conn, cmd CommandTyp
 		defer proxyconn.SetDeadline(time.Time{})
 	}
 
-	if err = d.connectAuth(proxyconn); err == nil {
+	if err = cli.connectAuth(proxyconn); err == nil {
 		switch cmd {
 		default:
 			return nil, ErrUnsupportedCommand
 		case ConnectCommand:
-			if _, err = d.connectCommand(proxyconn, ConnectCommand, address); err == nil {
+			if _, err = cli.connectCommand(proxyconn, ConnectCommand, address); err == nil {
 				conn = proxyconn
 			}
 		case BindCommand:
-			if _, err = d.connectCommand(proxyconn, BindCommand, address); err == nil {
+			if _, err = cli.connectCommand(proxyconn, BindCommand, address); err == nil {
 				conn = proxyconn
 			}
 		case AssociateCommand:
 			var proxyaddr Addr
-			if proxyaddr, err = d.connectCommand(proxyconn, AssociateCommand, ":0"); err == nil {
-				if conn, err = d.proxyDial(ctx, "udp", proxyaddr.String()); err == nil {
+			if proxyaddr, err = cli.connectCommand(proxyconn, AssociateCommand, ":0"); err == nil {
+				if conn, err = cli.proxyDial(ctx, "udp", proxyaddr.String()); err == nil {
 					if conn, err = NewUDPConn(conn, address); err == nil {
 						go func() {
 							defer conn.Close()
@@ -131,10 +125,10 @@ func (d *Client) connect(ctx context.Context, proxyconn net.Conn, cmd CommandTyp
 	return
 }
 
-func (d *Client) connectAuth(conn net.Conn) (err error) {
+func (cli *Client) connectAuth(conn net.Conn) (err error) {
 	var auths []byte
 	auths = append(auths, byte(NoAuthRequired))
-	if d.ProxyUsername != "" {
+	if cli.ProxyUsername != "" {
 		auths = append(auths, byte(PasswordAuth))
 	}
 
@@ -155,8 +149,8 @@ func (d *Client) connectAuth(conn net.Conn) (err error) {
 				case PasswordAuth:
 					var b []byte
 					b = append(b, PasswordAuthVersion)
-					if b, err = AppendString(b, d.ProxyUsername, ErrIllegalUsername); err == nil {
-						if b, err = AppendString(b, d.ProxyPassword, ErrIllegalPassword); err == nil {
+					if b, err = AppendString(b, cli.ProxyUsername, ErrIllegalUsername); err == nil {
+						if b, err = AppendString(b, cli.ProxyPassword, ErrIllegalPassword); err == nil {
 							if _, err = conn.Write(b); err == nil {
 								if _, err = io.ReadFull(conn, header[:]); err == nil {
 									if err = MustEqual(header[0], PasswordAuthVersion, ErrBadSOCKSAuthVersion); err == nil {
@@ -173,14 +167,14 @@ func (d *Client) connectAuth(conn net.Conn) (err error) {
 	return
 }
 
-func (d *Client) connectCommand(conn net.Conn, cmd CommandType, address string) (proxyaddr Addr, err error) {
+func (cli *Client) connectCommand(conn net.Conn, cmd CommandType, address string) (proxyaddr Addr, err error) {
 	var addr Addr
 	if addr, err = AddrFromString(address); err == nil {
 		var b []byte
 		b = append(b, Socks5Version, byte(cmd), 0)
 		if b, err = addr.AppendBinary(b); err == nil {
 			if _, err = conn.Write(b); err == nil {
-				proxyaddr, err = d.readReply(conn)
+				proxyaddr, err = cli.readReply(conn)
 				err = Note(err, "connectCommand")
 			}
 		}
@@ -188,7 +182,7 @@ func (d *Client) connectCommand(conn net.Conn, cmd CommandType, address string) 
 	return
 }
 
-func (d *Client) readReply(conn net.Conn) (addr Addr, err error) {
+func (cli *Client) readReply(conn net.Conn) (addr Addr, err error) {
 	var header [3]byte
 	if _, err = io.ReadFull(conn, header[:]); err == nil {
 		if err = MustEqual(header[0], Socks5Version, ErrVersion); err == nil {
@@ -200,26 +194,17 @@ func (d *Client) readReply(conn net.Conn) (addr Addr, err error) {
 	return
 }
 
-func (d *Client) resolver() (hl HostLookuper) {
-	if hl = d.HostLookuper; hl == nil {
+func (cli *Client) resolver() (hl HostLookuper) {
+	if hl = cli.HostLookuper; hl == nil {
 		hl = net.DefaultResolver
 	}
 	return
 }
 
-func (d *Client) proxyDial(ctx context.Context, network, address string) (net.Conn, error) {
-	proxyDial := d.ProxyDialer
+func (cli *Client) proxyDial(ctx context.Context, network, address string) (net.Conn, error) {
+	proxyDial := cli.ProxyDialer
 	if proxyDial == nil {
 		proxyDial = DefaultProxyDialer
 	}
 	return proxyDial.DialContext(ctx, network, address)
-}
-
-type connect struct {
-	net.Conn
-	remoteAddr net.Addr
-}
-
-func (c *connect) RemoteAddr() net.Addr {
-	return c.remoteAddr
 }
