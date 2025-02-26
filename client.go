@@ -40,11 +40,11 @@ func (d *Client) Dial(network, address string) (net.Conn, error) {
 var ErrUnsupportedNetwork = errors.New("unsupported network")
 
 func (d *Client) Listen(ctx context.Context, network, address string) (l net.Listener, err error) {
+	err = ErrUnsupportedNetwork
 	switch network {
-	default:
-		err = ErrUnsupportedNetwork
 	case "tcp", "tcp4", "tcp6":
 		l = &listener{ctx: ctx, d: d, address: address}
+		err = nil
 	}
 	return
 }
