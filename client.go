@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type Dialer struct {
+type Client struct {
 	ProxyAddress  string        // proxy server address
 	ProxyDialer   ContextDialer // dialer to use when dialing the proxy, nil for DefaultProxyDialer
 	ProxyUsername string        // user name
@@ -22,7 +22,7 @@ type Dialer struct {
 
 var DefaultProxyDialer ContextDialer = &net.Dialer{}
 
-func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+func (d *Client) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	switch network {
 	default:
 		return nil, fmt.Errorf("unsupported network %q", network)
@@ -33,13 +33,13 @@ func (d *Dialer) DialContext(ctx context.Context, network, address string) (net.
 	}
 }
 
-func (d *Dialer) Dial(network, address string) (net.Conn, error) {
+func (d *Client) Dial(network, address string) (net.Conn, error) {
 	return d.DialContext(context.Background(), network, address)
 }
 
 var ErrUnsupportedNetwork = errors.New("unsupported network")
 
-func (d *Dialer) Listen(ctx context.Context, network, address string) (l net.Listener, err error) {
+func (d *Client) Listen(ctx context.Context, network, address string) (l net.Listener, err error) {
 	switch network {
 	default:
 		err = ErrUnsupportedNetwork
@@ -49,7 +49,7 @@ func (d *Dialer) Listen(ctx context.Context, network, address string) (l net.Lis
 	return
 }
 
-func (d *Dialer) resolve(ctx context.Context, hostport string) (ipandport string, err error) {
+func (d *Client) resolve(ctx context.Context, hostport string) (ipandport string, err error) {
 	ipandport = hostport
 	if d.LocalResolve {
 		var host, port string
@@ -77,7 +77,7 @@ func (d *Dialer) resolve(ctx context.Context, hostport string) (ipandport string
 	return
 }
 
-func (d *Dialer) do(ctx context.Context, cmd CommandType, address string) (conn net.Conn, err error) {
+func (d *Client) do(ctx context.Context, cmd CommandType, address string) (conn net.Conn, err error) {
 	if address, err = d.resolve(ctx, address); err == nil {
 		if conn, err = d.proxyDial(ctx, "tcp", d.ProxyAddress); err == nil {
 			conn, err = d.connect(ctx, conn, cmd, address)
@@ -86,7 +86,7 @@ func (d *Dialer) do(ctx context.Context, cmd CommandType, address string) (conn 
 	return
 }
 
-func (d *Dialer) connect(ctx context.Context, proxyconn net.Conn, cmd CommandType, address string) (conn net.Conn, err error) {
+func (d *Client) connect(ctx context.Context, proxyconn net.Conn, cmd CommandType, address string) (conn net.Conn, err error) {
 	if d.DialTimeout != 0 {
 		deadline := time.Now().Add(d.DialTimeout)
 		if d, ok := ctx.Deadline(); !ok || deadline.Before(d) {
@@ -133,7 +133,7 @@ var ErrAuthMethodNotSupported = errors.New("auth method not supported")
 var ErrIllegalUsername = errors.New("illegal username")
 var ErrIllegalPassword = errors.New("illegal password")
 
-func (d *Dialer) connectAuth(conn net.Conn) (err error) {
+func (d *Client) connectAuth(conn net.Conn) (err error) {
 	var auths []byte
 	auths = append(auths, byte(NoAuthRequired))
 	if d.ProxyUsername != "" {
@@ -175,7 +175,7 @@ func (d *Dialer) connectAuth(conn net.Conn) (err error) {
 	return
 }
 
-func (d *Dialer) connectCommand(conn net.Conn, cmd CommandType, address string) (proxyaddr Addr, err error) {
+func (d *Client) connectCommand(conn net.Conn, cmd CommandType, address string) (proxyaddr Addr, err error) {
 	var addr Addr
 	if addr, err = AddrFromString(address); err == nil {
 		var b []byte
@@ -190,7 +190,7 @@ func (d *Dialer) connectCommand(conn net.Conn, cmd CommandType, address string) 
 	return
 }
 
-func (d *Dialer) readReply(conn net.Conn) (addr Addr, err error) {
+func (d *Client) readReply(conn net.Conn) (addr Addr, err error) {
 	var header [3]byte
 	if _, err = io.ReadFull(conn, header[:]); err == nil {
 		if err = MustEqual(header[0], Socks5Version, ErrVersion); err == nil {
@@ -202,14 +202,14 @@ func (d *Dialer) readReply(conn net.Conn) (addr Addr, err error) {
 	return
 }
 
-func (d *Dialer) resolver() (hl HostLookuper) {
+func (d *Client) resolver() (hl HostLookuper) {
 	if hl = d.HostLookuper; hl == nil {
 		hl = net.DefaultResolver
 	}
 	return
 }
 
-func (d *Dialer) proxyDial(ctx context.Context, network, address string) (net.Conn, error) {
+func (d *Client) proxyDial(ctx context.Context, network, address string) (net.Conn, error) {
 	proxyDial := d.ProxyDialer
 	if proxyDial == nil {
 		proxyDial = DefaultProxyDialer

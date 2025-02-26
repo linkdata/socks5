@@ -7,7 +7,7 @@ import (
 
 type listener struct {
 	ctx     context.Context
-	d       *Dialer
+	d       *Client
 	address string
 }
 

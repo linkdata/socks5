@@ -90,7 +90,7 @@ func TestServerAndAuthClient(t *testing.T) {
 	}
 	go proxy.Serve(ctx, listen)
 
-	dial := socks5.Dialer{ProxyAddress: listen.Addr().String(), ProxyUsername: "u", ProxyPassword: "p"}
+	dial := socks5.Client{ProxyAddress: listen.Addr().String(), ProxyUsername: "u", ProxyPassword: "p"}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestServerAndClient(t *testing.T) {
 	proxy := socks5.Server{}
 	go proxy.Serve(ctx, listen)
 
-	dial := socks5.Dialer{ProxyAddress: listen.Addr().String(), ProxyUsername: "u", ProxyPassword: "p"}
+	dial := socks5.Client{ProxyAddress: listen.Addr().String(), ProxyUsername: "u", ProxyPassword: "p"}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func TestServerAndClientWithDomain(t *testing.T) {
 	proxy := socks5.Server{}
 	go proxy.Serve(ctx, listen)
 
-	dial := socks5.Dialer{ProxyAddress: listen.Addr().String(), LocalResolve: true}
+	dial := socks5.Client{ProxyAddress: listen.Addr().String(), LocalResolve: true}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -175,7 +175,7 @@ func TestServerAndClientWithServerDomain(t *testing.T) {
 	proxy := socks5.Server{}
 	go proxy.Serve(ctx, listen)
 
-	dial := socks5.Dialer{ProxyAddress: listen.Addr().String(), ProxyUsername: "u", ProxyPassword: "p"}
+	dial := socks5.Client{ProxyAddress: listen.Addr().String(), ProxyUsername: "u", ProxyPassword: "p"}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func TestUDP2(t *testing.T) {
 	proxy := socks5.Server{}
 	go proxy.Serve(ctx, listen)
 
-	dial := socks5.Dialer{ProxyAddress: listen.Addr().String()}
+	dial := socks5.Client{ProxyAddress: listen.Addr().String()}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +269,7 @@ func TestBind2(t *testing.T) {
 	proxy := socks5.Server{}
 	go proxy.Serve(ctx, listen)
 
-	dial := socks5.Dialer{ProxyAddress: listen.Addr().String()}
+	dial := socks5.Client{ProxyAddress: listen.Addr().String()}
 	if err != nil {
 		t.Fatal(err)
 	}

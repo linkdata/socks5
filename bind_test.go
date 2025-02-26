@@ -23,7 +23,7 @@ func TestBind(t *testing.T) {
 	var server socks5.Server
 	go server.Serve(ctx, listen)
 
-	dial := &socks5.Dialer{ProxyAddress: listen.Addr().String()}
+	dial := &socks5.Client{ProxyAddress: listen.Addr().String()}
 
 	listener, err := dial.Listen(ctx, "tcp", ":10001")
 	if err != nil {
