@@ -21,6 +21,10 @@ type Client struct {
 }
 
 var DefaultProxyDialer ContextDialer = &net.Dialer{}
+var ErrUnsupportedNetwork = errors.New("unsupported network")
+var ErrAuthMethodNotSupported = errors.New("auth method not supported")
+var ErrIllegalUsername = errors.New("illegal username")
+var ErrIllegalPassword = errors.New("illegal password")
 
 func (d *Client) DialContext(ctx context.Context, network, address string) (conn net.Conn, err error) {
 	err = ErrUnsupportedNetwork
@@ -36,8 +40,6 @@ func (d *Client) DialContext(ctx context.Context, network, address string) (conn
 func (d *Client) Dial(network, address string) (net.Conn, error) {
 	return d.DialContext(context.Background(), network, address)
 }
-
-var ErrUnsupportedNetwork = errors.New("unsupported network")
 
 func (d *Client) Listen(ctx context.Context, network, address string) (l net.Listener, err error) {
 	err = ErrUnsupportedNetwork
@@ -128,10 +130,6 @@ func (d *Client) connect(ctx context.Context, proxyconn net.Conn, cmd CommandTyp
 	}
 	return
 }
-
-var ErrAuthMethodNotSupported = errors.New("auth method not supported")
-var ErrIllegalUsername = errors.New("illegal username")
-var ErrIllegalPassword = errors.New("illegal password")
 
 func (d *Client) connectAuth(conn net.Conn) (err error) {
 	var auths []byte
