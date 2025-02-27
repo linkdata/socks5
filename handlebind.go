@@ -16,9 +16,10 @@ func sendReply(w io.Writer, resp ReplyCode, addr Addr) (err error) {
 }
 
 func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error) {
-	var lc net.ListenConfig
 	var listener net.Listener
-	if listener, err = lc.Listen(ctx, "tcp", bindaddr); err == nil {
+	_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "bindaddr", bindaddr)
+	if listener, err = sess.getListener(ctx, bindaddr); err == nil {
+		defer listener.Close()
 		var addr Addr
 		if addr, err = AddrFromString(listener.Addr().String()); err == nil {
 			addr.ReplaceAny(sess.conn.LocalAddr().String())
@@ -26,12 +27,12 @@ func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error
 				_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "listen", addr)
 				var conn net.Conn
 				if conn, err = listener.Accept(); err == nil {
-					_ = listener.Close()
+					defer conn.Close()
 					var remoteAddr Addr
 					if remoteAddr, err = AddrFromString(conn.RemoteAddr().String()); err == nil {
-						_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "remote", remoteAddr)
+						_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "remote-bound", remoteAddr)
 						if err = sendReply(sess.conn, Success, remoteAddr); err == nil {
-							defer conn.Close()
+							_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "remote-start", remoteAddr)
 							ctx, cancel := context.WithCancel(ctx)
 							go func() {
 								_, _ = io.Copy(sess.conn, conn)
@@ -42,14 +43,15 @@ func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error
 								cancel()
 							}()
 							<-ctx.Done()
+							_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "remote-stop", remoteAddr)
 							return
 						}
 					}
 				}
 			}
 		}
-		_ = listener.Close()
 	}
+	sess.LogError("BIND", "session", sess.conn.RemoteAddr(), "adress", bindaddr, "error", err)
 	_ = sendReply(sess.conn, GeneralFailure, ZeroAddr)
 	return
 }

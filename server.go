@@ -9,6 +9,8 @@ import (
 	"io"
 	"net"
 	"strconv"
+	"sync"
+	"sync/atomic"
 )
 
 type AuthMethod byte
@@ -51,9 +53,14 @@ type Server struct {
 	// If not nil, use this Logger (compatible with log/slog)
 	Logger Logger
 	Debug  bool // if true, output debug logging using Logger.Info
+
+	closed    atomic.Bool
+	mu        sync.Mutex // protects following
+	listeners map[string]*listener
 }
 
 var DefaultDialer ContextDialer = &net.Dialer{}
+var LogPrefix = "socks5: "
 
 func (s *Server) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	dialer := s.Dialer
@@ -63,7 +70,53 @@ func (s *Server) DialContext(ctx context.Context, network, addr string) (net.Con
 	return dialer.DialContext(ctx, network, addr)
 }
 
-var LogPrefix = "socks5: "
+func listenKey(address string) (key string) {
+	if host, port, err := net.SplitHostPort(address); err == nil {
+		if port != "0" {
+			if host == "0.0.0.0" || host == "::" {
+				host = ""
+			}
+			key = net.JoinHostPort(host, port)
+		}
+	}
+	return
+}
+
+func (s *Server) getListener(ctx context.Context, address string) (nl net.Listener, err error) {
+	err = net.ErrClosed
+	if !s.closed.Load() {
+		err = nil
+		if key := listenKey(address); key != "" {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			if s.listeners == nil {
+				s.listeners = make(map[string]*listener)
+			}
+			l := s.listeners[key]
+			if l == nil {
+				var lc net.ListenConfig
+				var newlistener net.Listener
+				if newlistener, err = lc.Listen(ctx, "tcp", address); err == nil {
+					l = &listener{
+						srv:      s,
+						key:      key,
+						Listener: newlistener,
+					}
+					s.listeners[key] = l
+					_ = s.Debug && s.LogDebug("server listener start", "key", key)
+				}
+			}
+			if l != nil {
+				l.refs.Add(1)
+				nl = &listenerproxy{listener: l}
+			}
+		} else {
+			var lc net.ListenConfig
+			nl, err = lc.Listen(ctx, "tcp", address)
+		}
+	}
+	return
+}
 
 func (s *Server) LogDebug(msg string, keyvaluepairs ...any) bool {
 	if s.Debug && s.Logger != nil {
@@ -91,9 +144,23 @@ func (s *Server) maybeLogError(err error, msg string, keyvaluepairs ...any) {
 	}
 }
 
+func (s *Server) close() {
+	if !s.closed.Swap(true) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		for _, l := range s.listeners {
+			_ = s.Debug && s.LogDebug("Server.close(): listener stop", "key", l.key)
+			l.refs.Store(0)
+			_ = l.Listener.Close()
+		}
+		clear(s.listeners)
+	}
+}
+
 // Serve accepts and handles incoming connections on the given listener.
 func (s *Server) Serve(ctx context.Context, l net.Listener) (err error) {
 	defer l.Close()
+	defer s.close()
 	errchan := make(chan error, 1)
 	s.LogInfo("listening", "addr", l.Addr())
 	go s.listen(ctx, errchan, l)

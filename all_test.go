@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +17,7 @@ import (
 	"github.com/linkdata/socks5"
 )
 
-var testServer = httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+var httpTestServer = httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 	rw.Write([]byte("ok"))
 }))
 
@@ -32,13 +34,13 @@ func TestServerAndStdClient(t *testing.T) {
 	proxy := socks5.Server{}
 	go proxy.Serve(ctx, listen)
 
-	cli := testServer.Client()
+	cli := httpTestServer.Client()
 	cli.Transport = &http.Transport{
 		Proxy: func(request *http.Request) (*url.URL, error) {
 			return url.Parse("socks5://" + listen.Addr().String())
 		},
 	}
-	resp, err := cli.Get(testServer.URL)
+	resp, err := cli.Get(httpTestServer.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,13 +63,13 @@ func TestServerAndAuthStdClient(t *testing.T) {
 	}
 	go proxy.Serve(ctx, listen)
 
-	cli := testServer.Client()
+	cli := httpTestServer.Client()
 	cli.Transport = &http.Transport{
 		Proxy: func(request *http.Request) (*url.URL, error) {
 			return url.Parse("socks5://u:p@" + listen.Addr().String())
 		},
 	}
-	resp, err := cli.Get(testServer.URL)
+	resp, err := cli.Get(httpTestServer.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,12 +96,12 @@ func TestServerAndAuthClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cli := testServer.Client()
+	cli := httpTestServer.Client()
 	cli.Transport = &http.Transport{
 		DialContext: dial.DialContext,
 	}
 
-	resp, err := cli.Get(testServer.URL)
+	resp, err := cli.Get(httpTestServer.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,12 +125,12 @@ func TestServerAndClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cli := testServer.Client()
+	cli := httpTestServer.Client()
 	cli.Transport = &http.Transport{
 		DialContext: dial.DialContext,
 	}
 
-	resp, err := cli.Get(testServer.URL)
+	resp, err := cli.Get(httpTestServer.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,11 +154,11 @@ func TestServerAndClientWithDomain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cli := testServer.Client()
+	cli := httpTestServer.Client()
 	cli.Transport = &http.Transport{
 		DialContext: dial.DialContext,
 	}
-	resp, err := cli.Get(strings.ReplaceAll(testServer.URL, "127.0.0.1", "localhost"))
+	resp, err := cli.Get(strings.ReplaceAll(httpTestServer.URL, "127.0.0.1", "localhost"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,11 +181,11 @@ func TestServerAndClientWithServerDomain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cli := testServer.Client()
+	cli := httpTestServer.Client()
 	cli.Transport = &http.Transport{
 		DialContext: dial.DialContext,
 	}
-	resp, err := cli.Get(strings.ReplaceAll(testServer.URL, "127.0.0.1", "localhost"))
+	resp, err := cli.Get(strings.ReplaceAll(httpTestServer.URL, "127.0.0.1", "localhost"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,26 +268,59 @@ func TestBind2(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	proxy := socks5.Server{}
+	proxy := socks5.Server{
+		Logger: slog.Default(),
+		Debug:  true,
+	}
 	go proxy.Serve(ctx, listen)
 
-	dial := socks5.Client{ProxyAddress: listen.Addr().String()}
+	client := socks5.Client{ProxyAddress: listen.Addr().String()}
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	listener, err := dial.Listen(context.Background(), "tcp", ":10000")
+	listener, err := client.Listen(context.Background(), "tcp", ":10002")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer listener.Close()
+
 	go func() {
 		httperror := http.Serve(listener, nil)
-		t.Errorf("%v (%#v)", httperror, httperror)
+		fmt.Printf("%v (%#v)", httperror, httperror)
 	}()
 	time.Sleep(time.Second / 10)
-	resp, err := http.Get("http://127.0.0.1:10000")
+
+	resp, err := http.Get("http://127.0.0.1:10002")
 	if err != nil {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
+
+	resp, err = http.Get("http://127.0.0.1:10002")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	resp, err = http.Get("http://127.0.0.1:10002")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	/*var wg sync.WaitGroup
+	for range 10 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := http.Get("http://127.0.0.1:10002")
+			if err != nil {
+				t.Error(err)
+			} else {
+				resp.Body.Close()
+			}
+		}()
+	}
+	wg.Wait()*/
 }

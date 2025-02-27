@@ -29,12 +29,12 @@ func TestBind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer listener.Close()
 
+	errCh := make(chan error)
 	go func() {
-		httperr := http.Serve(listener, nil)
-		if httperr != nil {
-			t.Error(httperr)
-		}
+		defer close(errCh)
+		errCh <- http.Serve(listener, nil)
 	}()
 
 	time.Sleep(time.Second / 10)
@@ -44,4 +44,13 @@ func TestBind(t *testing.T) {
 		t.Fatal(err)
 	}
 	resp.Body.Close()
+
+	listener.Close()
+
+	select {
+	case <-ctx.Done():
+		t.Error("http.Serve did not finish")
+	case err = <-errCh:
+		t.Log(err)
+	}
 }

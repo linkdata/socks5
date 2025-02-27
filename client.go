@@ -30,9 +30,9 @@ func (cli *Client) DialContext(ctx context.Context, network, address string) (co
 	err = ErrUnsupportedNetwork
 	switch network {
 	case "tcp", "tcp4", "tcp6":
-		conn, err = cli.do(ctx, ConnectCommand, address)
+		conn, _, err = cli.do(ctx, ConnectCommand, address)
 	case "udp", "udp4", "udp6":
-		conn, err = cli.do(ctx, AssociateCommand, address)
+		conn, _, err = cli.do(ctx, AssociateCommand, address)
 	}
 	return
 }
@@ -42,7 +42,7 @@ func (cli *Client) Dial(network, address string) (net.Conn, error) {
 }
 
 func (cli *Client) Listen(ctx context.Context, network, address string) (l net.Listener, err error) {
-	return newListener(ctx, cli, network, address)
+	return newBinding(ctx, cli, network, address)
 }
 
 func (cli *Client) resolve(ctx context.Context, hostport string) (ipandport string, err error) {
@@ -73,16 +73,16 @@ func (cli *Client) resolve(ctx context.Context, hostport string) (ipandport stri
 	return
 }
 
-func (cli *Client) do(ctx context.Context, cmd CommandType, address string) (conn net.Conn, err error) {
+func (cli *Client) do(ctx context.Context, cmd CommandType, address string) (conn net.Conn, addr Addr, err error) {
 	if address, err = cli.resolve(ctx, address); err == nil {
 		if conn, err = cli.proxyDial(ctx, "tcp", cli.ProxyAddress); err == nil {
-			conn, err = cli.connect(ctx, conn, cmd, address)
+			conn, addr, err = cli.connect(ctx, conn, cmd, address)
 		}
 	}
 	return
 }
 
-func (cli *Client) connect(ctx context.Context, proxyconn net.Conn, cmd CommandType, address string) (conn net.Conn, err error) {
+func (cli *Client) connect(ctx context.Context, proxyconn net.Conn, cmd CommandType, address string) (conn net.Conn, addr Addr, err error) {
 	if cli.DialTimeout != 0 {
 		deadline := time.Now().Add(cli.DialTimeout)
 		if d, ok := ctx.Deadline(); !ok || deadline.Before(d) {
@@ -99,19 +99,18 @@ func (cli *Client) connect(ctx context.Context, proxyconn net.Conn, cmd CommandT
 	if err = cli.connectAuth(proxyconn); err == nil {
 		switch cmd {
 		default:
-			return nil, ErrUnsupportedCommand
+			err = ErrUnsupportedCommand
 		case ConnectCommand:
-			if _, err = cli.connectCommand(proxyconn, ConnectCommand, address); err == nil {
+			if addr, err = cli.connectCommand(proxyconn, ConnectCommand, address); err == nil {
 				conn = proxyconn
 			}
 		case BindCommand:
-			if _, err = cli.connectCommand(proxyconn, BindCommand, address); err == nil {
+			if addr, err = cli.connectCommand(proxyconn, BindCommand, address); err == nil {
 				conn = proxyconn
 			}
 		case AssociateCommand:
-			var proxyaddr Addr
-			if proxyaddr, err = cli.connectCommand(proxyconn, AssociateCommand, ":0"); err == nil {
-				if conn, err = cli.proxyDial(ctx, "udp", proxyaddr.String()); err == nil {
+			if addr, err = cli.connectCommand(proxyconn, AssociateCommand, ":0"); err == nil {
+				if conn, err = cli.proxyDial(ctx, "udp", addr.String()); err == nil {
 					if conn, err = NewUDPConn(conn, address); err == nil {
 						go func() {
 							defer conn.Close()
