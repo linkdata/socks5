@@ -91,9 +91,17 @@ func (l *binding) Close() (err error) {
 	return
 }
 
-// address returns the listener's network address.
+// Addr returns the listener's address and port on the proxy server.
+// If listening on the ANY address (0.0.0.0 or ::), it will return the proxy servers address instead of that.
 func (l *binding) Addr() net.Addr {
-	return l.addr
+	l.mu.Lock()
+	addr := l.addr
+	conn := l.waitconn
+	l.mu.Unlock()
+	if conn != nil {
+		addr.ReplaceAny(conn.RemoteAddr().String())
+	}
+	return addr
 }
 
 type connect struct {

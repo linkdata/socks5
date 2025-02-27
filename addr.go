@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/netip"
 	"strconv"
-	"strings"
 )
 
 // AddrType are the bytes sent in SOCKS5 packets
@@ -104,10 +103,6 @@ func ReadAddr(r io.Reader) (addr Addr, err error) {
 		}
 	}
 	return
-}
-
-func ParseAddr(s string) (addr Addr, err error) {
-	return ReadAddr(strings.NewReader(s))
 }
 
 func requireIPv4(s string) (addr netip.Addr, err error) {

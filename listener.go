@@ -16,7 +16,7 @@ func (l *listener) Close() (err error) {
 	if l.refs.Add(-1) == 0 {
 		l.srv.mu.Lock()
 		if l.srv.listeners != nil {
-			_ = l.srv.Debug && l.srv.LogDebug("listener.Close(): listener stop", "key", l.key)
+			_ = l.srv.Debug && l.srv.LogDebug("listener.Close(): listener stop", "address", l.key)
 			err = l.Listener.Close()
 			delete(l.srv.listeners, l.key)
 		}

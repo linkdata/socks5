@@ -3,6 +3,7 @@ package socks5_test
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -54,6 +55,18 @@ func TestClient_Listen_SingleRequest(t *testing.T) {
 			t.Log(err)
 		}
 	}
+
+	// wait until we get "connection refused"
+	for range 10 {
+		resp, err = http.Get("http://" + listenAddr.String())
+		if err == nil {
+			resp.Body.Close()
+		}
+		if strings.Contains(err.Error(), "connection refused") {
+			return
+		}
+	}
+	t.Error(err)
 }
 
 func TestClient_Listen_SerialRequests(t *testing.T) {

@@ -113,7 +113,7 @@ func (s *Server) getListener(ctx context.Context, address string) (nl net.Listen
 						Listener: newlistener,
 					}
 					s.listeners[key] = l
-					_ = s.Debug && s.LogDebug("server listener start", "key", key)
+					_ = s.Debug && s.LogDebug("server listener start", "adress", key)
 				}
 			}
 			if l != nil {
@@ -156,7 +156,7 @@ func (s *Server) close() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		for _, l := range s.listeners {
-			_ = s.Debug && s.LogDebug("Server.close(): listener stop", "key", l.key)
+			_ = s.Debug && s.LogDebug("Server.close(): listener stop", "address", l.key)
 			l.refs.Store(0)
 			_ = l.Listener.Close()
 		}
