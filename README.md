@@ -10,3 +10,6 @@ SOCKS5 client and server
 - [x] Support for the BIND command
 - [x] Support for the ASSOCIATE command
 - [x] Uses ContextDialer's for easy interoperation with other packages
+
+Notably, the client support for `net.Listener` includes reporting the bound address and port before calling `Accept()` and
+supports multiple concurrent `Accept()` calls, allowing you to reverse-proxy a server using this package.
