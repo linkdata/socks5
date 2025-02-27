@@ -15,25 +15,34 @@ type testServer struct {
 	t           *testing.T
 	srvlistener net.Listener
 	server      *socks5.Server
+	client      *socks5.Client
 	srvClosedCh chan struct{}
 }
 
-func newTestServer(ctx context.Context, t *testing.T) (ts *testServer) {
+func newTestServer(ctx context.Context, t *testing.T, needauth bool) (ts *testServer) {
 	t.Helper()
-	var err error
 	var lc net.ListenConfig
-	ts = &testServer{
-		ctx: ctx,
-		t:   t,
-	}
-	if ts.srvlistener, err = lc.Listen(ctx, "tcp", ":0"); err != nil {
+	srvlistener, err := lc.Listen(ctx, "tcp", ":0")
+	if err != nil {
 		t.Fatal(err)
 	}
-	ts.server = &socks5.Server{
-		Logger: slog.Default(),
-		Debug:  true,
+	ts = &testServer{
+		ctx:         ctx,
+		t:           t,
+		srvlistener: srvlistener,
+		server: &socks5.Server{
+			Logger: slog.Default(),
+			Debug:  true,
+		},
+		client: &socks5.Client{
+			ProxyAddress: srvlistener.Addr().String(),
+		},
+		srvClosedCh: make(chan struct{}),
 	}
-	ts.srvClosedCh = make(chan struct{})
+	if needauth {
+		ts.server.Username = "u"
+		ts.server.Password = "p"
+	}
 	go func() {
 		defer close(ts.srvClosedCh)
 		ts.server.Serve(ctx, ts.srvlistener)

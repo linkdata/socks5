@@ -14,7 +14,7 @@ import (
 func TestClient_Listen_SingleRequest(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	ts := newTestServer(ctx, t)
+	ts := newTestServer(ctx, t, false)
 	defer ts.close()
 
 	client := socks5.Client{ProxyAddress: ts.srvlistener.Addr().String()}
@@ -72,7 +72,7 @@ func TestClient_Listen_SingleRequest(t *testing.T) {
 func TestClient_Listen_SerialRequests(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	ts := newTestServer(ctx, t)
+	ts := newTestServer(ctx, t, false)
 	defer ts.close()
 
 	client := socks5.Client{ProxyAddress: ts.srvlistener.Addr().String()}
@@ -116,7 +116,7 @@ func TestClient_Listen_SerialRequests(t *testing.T) {
 func TestClient_Listen_ParallelRequests(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	ts := newTestServer(ctx, t)
+	ts := newTestServer(ctx, t, false)
 	defer ts.close()
 
 	client := socks5.Client{ProxyAddress: ts.srvlistener.Addr().String()}
