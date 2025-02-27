@@ -23,9 +23,9 @@ func TestClient_Auth_None(t *testing.T) {
 	}))
 	defer httpsrv.Close()
 
-	tp := &http.Transport{DialContext: ts.client.DialContext}
-	httpClient := http.Client{Transport: tp}
-	resp, err := httpClient.Get(httpsrv.URL)
+	httpcli := httpsrv.Client()
+	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	resp, err := httpcli.Get(httpsrv.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,9 +43,9 @@ func TestClient_Auth_NoAcceptable(t *testing.T) {
 	}))
 	defer httpsrv.Close()
 
-	tp := &http.Transport{DialContext: ts.client.DialContext}
-	httpClient := http.Client{Transport: tp}
-	resp, err := httpClient.Get(httpsrv.URL)
+	httpcli := httpsrv.Client()
+	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	resp, err := httpcli.Get(httpsrv.URL)
 	if resp != nil {
 		resp.Body.Close()
 	}
@@ -68,9 +68,9 @@ func TestClient_Auth_Password(t *testing.T) {
 	ts.client.ProxyUsername = "u"
 	ts.client.ProxyPassword = "p"
 
-	tp := &http.Transport{DialContext: ts.client.DialContext}
-	httpClient := http.Client{Transport: tp}
-	resp, err := httpClient.Get(httpsrv.URL)
+	httpcli := httpsrv.Client()
+	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	resp, err := httpcli.Get(httpsrv.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,9 +91,9 @@ func TestClient_Auth_InvalidPassword(t *testing.T) {
 	ts.client.ProxyUsername = "u"
 	ts.client.ProxyPassword = strings.Repeat("x", 256)
 
-	tp := &http.Transport{DialContext: ts.client.DialContext}
-	httpClient := http.Client{Transport: tp}
-	resp, err := httpClient.Get(httpsrv.URL)
+	httpcli := httpsrv.Client()
+	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	resp, err := httpcli.Get(httpsrv.URL)
 	if resp != nil {
 		resp.Body.Close()
 	}
