@@ -2,7 +2,7 @@ package socks5
 
 import (
 	"errors"
-	"strconv"
+	"fmt"
 )
 
 // ReplyCode are the bytes sent in SOCKS5 packets
@@ -46,16 +46,9 @@ var replyCodeError = map[ReplyCode]error{
 	AddrTypeNotSupported: ErrAddrTypeNotSupported,
 }
 
-func (code ReplyCode) String() string {
+func (code ReplyCode) ToError() error {
 	if err, ok := replyCodeError[code]; ok {
-		if err == nil {
-			return "success"
-		}
-		return err.Error()
+		return err
 	}
-	return strconv.Itoa(int(code))
-}
-
-func (code ReplyCode) Error() string {
-	return code.String()
+	return fmt.Errorf("code(%d)", int(code))
 }

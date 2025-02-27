@@ -174,7 +174,7 @@ func (cli *Client) readReply(conn net.Conn) (addr Addr, err error) {
 	if _, err = io.ReadFull(conn, header[:]); err == nil {
 		if err = MustEqual(header[0], Socks5Version, ErrVersion); err == nil {
 			replyCode := ReplyCode(header[1])
-			if err = MustEqual(replyCode, Success, replyCode); err == nil {
+			if err = MustEqual(replyCode, Success, replyCode.ToError()); err == nil {
 				addr, err = ReadAddr(conn)
 			}
 		}

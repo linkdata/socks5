@@ -101,3 +101,28 @@ func TestClient_Auth_InvalidPassword(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestClient_Auth_WrongPassword(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	ts := newTestServer(ctx, t, true)
+	defer ts.close()
+
+	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer httpsrv.Close()
+
+	ts.client.ProxyUsername = "u"
+	ts.client.ProxyPassword = "x"
+
+	httpcli := httpsrv.Client()
+	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	resp, err := httpcli.Get(httpsrv.URL)
+	if resp != nil {
+		resp.Body.Close()
+	}
+	if !errors.Is(err, socks5.ErrAuthFailed) {
+		t.Error(err)
+	}
+}

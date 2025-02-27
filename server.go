@@ -40,6 +40,9 @@ const (
 	AssociateCommand CommandType = 3
 )
 
+var ErrInvalidPortNumber = errors.New("invalid port number")
+var ErrBadSOCKSAuthVersion = errors.New("bad SOCKS auth version")
+
 // Server is a SOCKS5 proxy server.
 type Server struct {
 	// Dialer optionally specifies the ContextDialer to use for outgoing connections.
@@ -198,8 +201,6 @@ func (s *Server) startConn(ctx context.Context, clientConn net.Conn) {
 	_ = s.Debug && s.LogDebug("session stop", "session", clientConn.RemoteAddr(), "err", err)
 }
 
-var ErrInvalidPortNumber = errors.New("invalid port number")
-
 func SplitHostPort(hostport string) (host string, port uint16, err error) {
 	var portStr string
 	if host, portStr, err = net.SplitHostPort(hostport); err == nil {
@@ -231,8 +232,6 @@ func readClientGreeting(r io.Reader) (authMethods []AuthMethod, err error) {
 	}
 	return
 }
-
-var ErrBadSOCKSAuthVersion = errors.New("bad SOCKS auth version")
 
 func parseClientAuth(r io.Reader) (usr, pwd string, err error) {
 	var hdr [2]byte

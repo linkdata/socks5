@@ -8,36 +8,39 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"testing"
 	"time"
 
 	"github.com/linkdata/socks5"
-	"golang.org/x/net/proxy"
 )
 
+func init() {
+	socks5.UDPTimeout = time.Millisecond * 10
+}
+
 func socks5Server(ctx context.Context, listener net.Listener) {
+	defer listener.Close()
 	var server socks5.Server
 	err := server.Serve(ctx, listener)
 	if err != nil {
 		panic(err)
 	}
-	listener.Close()
 }
 
 func backendServer(listener net.Listener) {
+	defer listener.Close()
 	conn, err := listener.Accept()
 	if err != nil {
 		panic(err)
 	}
+	defer conn.Close()
 	conn.Write([]byte("Test"))
-	conn.Close()
-	listener.Close()
 }
 
 func udpEchoServer(conn net.PacketConn) {
+	defer conn.Close()
 	var buf [1024]byte
 	n, addr, err := conn.ReadFrom(buf[:])
 	if err != nil {
@@ -47,164 +50,24 @@ func udpEchoServer(conn net.PacketConn) {
 	if err != nil {
 		panic(err)
 	}
-	conn.Close()
-}
-
-func TestRead(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-
-	// backend server which we'll use SOCKS5 to connect to
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	backendServerPort := listener.Addr().(*net.TCPAddr).Port
-	go backendServer(listener)
-
-	// SOCKS5 server
-	socks5, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	socks5Port := socks5.Addr().(*net.TCPAddr).Port
-	go socks5Server(ctx, socks5)
-
-	addr := fmt.Sprintf("localhost:%d", socks5Port)
-	socksDialer, err := proxy.SOCKS5("tcp", addr, nil, proxy.Direct)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	addr = fmt.Sprintf("localhost:%d", backendServerPort)
-	conn, err := socksDialer.Dial("tcp", addr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	buf := make([]byte, 4)
-	_, err = io.ReadFull(conn, buf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(buf) != "Test" {
-		t.Fatalf("got: %q want: Test", buf)
-	}
-
-	err = conn.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestTCPInvalidHostname(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
+	ts := newTestServer(ctx, t, false)
+	defer ts.close()
 
-	// backend server which we'll use SOCKS5 to connect to
-	listener, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	backendServerPort := listener.Addr().(*net.TCPAddr).Port
-	go backendServer(listener)
-
-	// SOCKS5 server
-	socks5, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	socks5Port := socks5.Addr().(*net.TCPAddr).Port
-	go socks5Server(ctx, socks5)
-
-	addr := fmt.Sprintf("localhost:%d", socks5Port)
-	socksDialer, err := proxy.SOCKS5("tcp", addr, nil, proxy.Direct)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	addr = fmt.Sprintf("!:%d", backendServerPort)
-	conn, err := socksDialer.Dial("tcp", addr)
-	if err == nil {
+	conn, err := ts.client.DialContext(ctx, "tcp", "!:1234")
+	if conn != nil {
 		conn.Close()
-		t.Fatal(err)
 	}
-}
-
-func TestReadPassword(t *testing.T) {
-	// backend server which we'll use SOCKS5 to connect to
-	ln, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	backendServerPort := ln.Addr().(*net.TCPAddr).Port
-	go backendServer(ln)
-
-	socks5ln, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		socks5ln.Close()
-	})
-	auth := &proxy.Auth{User: "foo", Password: "bar"}
-	go func() {
-		s := socks5.Server{Username: auth.User, Password: auth.Password}
-		err := s.Serve(context.Background(), socks5ln)
-		if err != nil && !errors.Is(err, net.ErrClosed) {
-			panic(err)
+	if !errors.Is(err, socks5.ErrGeneralFailure) {
+		t.Errorf("%v: %#v", err, err)
+		if uw, ok := err.(interface{ Unwrap() error }); ok {
+			err = uw.Unwrap()
+			t.Errorf("unwrapped %T: %#v", err, err)
 		}
-	}()
-
-	addr := fmt.Sprintf("localhost:%d", socks5ln.Addr().(*net.TCPAddr).Port)
-
-	if d, err := proxy.SOCKS5("tcp", addr, nil, proxy.Direct); err != nil {
-		t.Fatal(err)
-	} else {
-		if _, err := d.Dial("tcp", addr); err == nil {
-			t.Fatal("expected no-auth dial error")
-		}
-	}
-
-	badPwd := &proxy.Auth{User: "foo", Password: "not right"}
-	if d, err := proxy.SOCKS5("tcp", addr, badPwd, proxy.Direct); err != nil {
-		t.Fatal(err)
-	} else {
-		if _, err := d.Dial("tcp", addr); err == nil {
-			t.Fatal("expected bad password dial error")
-		}
-	}
-
-	badUsr := &proxy.Auth{User: "not right", Password: "bar"}
-	if d, err := proxy.SOCKS5("tcp", addr, badUsr, proxy.Direct); err != nil {
-		t.Fatal(err)
-	} else {
-		if _, err := d.Dial("tcp", addr); err == nil {
-			t.Fatal("expected bad username dial error")
-		}
-	}
-
-	socksDialer, err := proxy.SOCKS5("tcp", addr, auth, proxy.Direct)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	addr = fmt.Sprintf("localhost:%d", backendServerPort)
-	conn, err := socksDialer.Dial("tcp", addr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	buf := make([]byte, 4)
-	if _, err := io.ReadFull(conn, buf); err != nil {
-		t.Fatal(err)
-	}
-	if string(buf) != "Test" {
-		t.Fatalf("got: %q want: Test", buf)
-	}
-
-	if err := conn.Close(); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -253,10 +116,6 @@ func TestInvalidUDPCommand(t *testing.T) {
 	if n < 3 || !bytes.Equal(buf[:3], []byte{socks5.Socks5Version, byte(socks5.CommandNotSupported), 0x00}) {
 		t.Fatalf("got: %q want: 0x05 0x0A 0x00", buf[:n])
 	}
-}
-
-func init() {
-	socks5.UDPTimeout = time.Millisecond * 10
 }
 
 func TestUDP(t *testing.T) {
