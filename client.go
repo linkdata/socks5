@@ -3,7 +3,6 @@ package socks5
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/netip"
@@ -17,7 +16,6 @@ type Client struct {
 	ProxyPassword string        // user password
 	HostLookuper                // resolver to use, nil for net.DefaultResolver
 	LocalResolve  bool          // if true, always resolve hostnames with HostLookuper
-	DialTimeout   time.Duration // proxy dial timeout, zero for no timeout
 }
 
 var DefaultProxyDialer ContextDialer = &net.Dialer{}
@@ -83,23 +81,13 @@ func (cli *Client) do(ctx context.Context, cmd CommandType, address string) (con
 }
 
 func (cli *Client) connect(ctx context.Context, proxyconn net.Conn, cmd CommandType, address string) (conn net.Conn, addr Addr, err error) {
-	if cli.DialTimeout != 0 {
-		deadline := time.Now().Add(cli.DialTimeout)
-		if d, ok := ctx.Deadline(); !ok || deadline.Before(d) {
-			subCtx, cancel := context.WithDeadline(ctx, deadline)
-			defer cancel()
-			ctx = subCtx
-		}
-	}
 	if deadline, ok := ctx.Deadline(); ok && !deadline.IsZero() {
 		_ = proxyconn.SetDeadline(deadline)
 		defer proxyconn.SetDeadline(time.Time{})
 	}
-
 	if err = cli.connectAuth(proxyconn); err == nil {
+		err = ErrUnsupportedCommand
 		switch cmd {
-		default:
-			err = ErrUnsupportedCommand
 		case ConnectCommand:
 			if addr, err = cli.connectCommand(proxyconn, ConnectCommand, address); err == nil {
 				conn = proxyconn
@@ -139,12 +127,12 @@ func (cli *Client) connectAuth(conn net.Conn) (err error) {
 		var header [2]byte
 		if _, err = io.ReadFull(conn, header[:]); err == nil {
 			if err = MustEqual(header[0], Socks5Version, ErrVersion); err == nil {
+				err = ErrAuthMethodNotSupported
 				switch authmethod := AuthMethod(header[1]); authmethod {
-				default:
-					err = ErrAuthMethodNotSupported
 				case NoAcceptableAuth:
 					err = ErrNoAcceptableAuthMethods
 				case NoAuthRequired:
+					err = nil
 				case PasswordAuth:
 					var b []byte
 					b = append(b, PasswordAuthVersion)
@@ -185,7 +173,8 @@ func (cli *Client) readReply(conn net.Conn) (addr Addr, err error) {
 	var header [3]byte
 	if _, err = io.ReadFull(conn, header[:]); err == nil {
 		if err = MustEqual(header[0], Socks5Version, ErrVersion); err == nil {
-			if err = MustEqual(ReplyCode(header[1]), Success, fmt.Errorf("reply code %v", header[1])); err == nil {
+			replyCode := ReplyCode(header[1])
+			if err = MustEqual(replyCode, Success, replyCode); err == nil {
 				addr, err = ReadAddr(conn)
 			}
 		}

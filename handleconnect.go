@@ -41,5 +41,6 @@ func (sess *session) handleCONNECT(ctx context.Context, addr string) (err error)
 			}
 		}
 	}
+	sess.maybeLogError(err, "CONNECT", "session", sess.conn.RemoteAddr(), "adress", addr)
 	return sess.fail(GeneralFailure, err)
 }

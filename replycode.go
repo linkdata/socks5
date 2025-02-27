@@ -55,3 +55,7 @@ func (code ReplyCode) String() string {
 	}
 	return strconv.Itoa(int(code))
 }
+
+func (code ReplyCode) Error() string {
+	return code.String()
+}

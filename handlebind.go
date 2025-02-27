@@ -50,7 +50,7 @@ func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error
 			}
 		}
 	}
-	sess.LogError("BIND", "session", sess.conn.RemoteAddr(), "adress", bindaddr, "error", err)
+	sess.maybeLogError(err, "BIND", "session", sess.conn.RemoteAddr(), "adress", bindaddr)
 	_ = sendReply(sess.conn, GeneralFailure, ZeroAddr)
 	return
 }
