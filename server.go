@@ -86,7 +86,16 @@ func (s *Server) getListener(ctx context.Context, address string) (nl net.Listen
 	err = net.ErrClosed
 	if !s.closed.Load() {
 		err = nil
-		if key := listenKey(address); key != "" {
+		key := listenKey(address)
+		var lc net.ListenConfig
+		var newlistener net.Listener
+		if key == "" {
+			if newlistener, err = lc.Listen(ctx, "tcp", address); err == nil {
+				address = newlistener.Addr().String()
+				key = listenKey(address)
+			}
+		}
+		if err == nil {
 			s.mu.Lock()
 			defer s.mu.Unlock()
 			if s.listeners == nil {
@@ -94,9 +103,10 @@ func (s *Server) getListener(ctx context.Context, address string) (nl net.Listen
 			}
 			l := s.listeners[key]
 			if l == nil {
-				var lc net.ListenConfig
-				var newlistener net.Listener
-				if newlistener, err = lc.Listen(ctx, "tcp", address); err == nil {
+				if newlistener == nil {
+					newlistener, err = lc.Listen(ctx, "tcp", address)
+				}
+				if err == nil {
 					l = &listener{
 						srv:      s,
 						key:      key,
@@ -110,9 +120,6 @@ func (s *Server) getListener(ctx context.Context, address string) (nl net.Listen
 				l.refs.Add(1)
 				nl = &listenerproxy{listener: l}
 			}
-		} else {
-			var lc net.ListenConfig
-			nl, err = lc.Listen(ctx, "tcp", address)
 		}
 	}
 	return

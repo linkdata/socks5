@@ -9,7 +9,6 @@ import (
 type binding struct {
 	cli      *Client
 	ctx      context.Context
-	address  string
 	addr     Addr          // address proxy server bound for listen
 	ready    chan struct{} // semaphore to mark ready-for-new-accept
 	mu       sync.Mutex    // protects following
@@ -28,7 +27,6 @@ func newBinding(ctx context.Context, cli *Client, network, address string) (bnd 
 			bnd = &binding{
 				cli:      cli,
 				ctx:      ctx,
-				address:  address,
 				ready:    make(chan struct{}, 1),
 				addr:     addr,
 				waitconn: conn,
@@ -40,7 +38,7 @@ func newBinding(ctx context.Context, cli *Client, network, address string) (bnd 
 }
 
 func (l *binding) startAccept() (conn net.Conn, addr Addr, err error) {
-	conn, addr, err = l.cli.do(l.ctx, BindCommand, l.address)
+	conn, addr, err = l.cli.do(l.ctx, BindCommand, l.addr.String())
 	return
 }
 

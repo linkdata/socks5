@@ -54,7 +54,6 @@ func TestClient_Listen_SingleRequest(t *testing.T) {
 			t.Log(err)
 		}
 	}
-	ts.close()
 }
 
 func TestClient_Listen_SerialRequests(t *testing.T) {
@@ -99,7 +98,6 @@ func TestClient_Listen_SerialRequests(t *testing.T) {
 			t.Log(err)
 		}
 	}
-	ts.close()
 }
 
 func TestClient_Listen_ParallelRequests(t *testing.T) {
@@ -110,7 +108,7 @@ func TestClient_Listen_ParallelRequests(t *testing.T) {
 
 	client := socks5.Client{ProxyAddress: ts.srvlistener.Addr().String()}
 
-	listener, err := client.Listen(ctx, "tcp", ":10000")
+	listener, err := client.Listen(ctx, "tcp", ":0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +125,7 @@ func TestClient_Listen_ParallelRequests(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			resp, err := http.Get("http://127.0.0.1:10000")
+			resp, err := http.Get("http://" + listener.Addr().String())
 			if err != nil {
 				t.Error(i, err)
 			} else {
@@ -135,7 +133,6 @@ func TestClient_Listen_ParallelRequests(t *testing.T) {
 			}
 		}()
 	}
-
 	wg.Wait()
 
 	err = listener.Close()
@@ -151,5 +148,4 @@ func TestClient_Listen_ParallelRequests(t *testing.T) {
 			t.Log(err)
 		}
 	}
-	ts.close()
 }

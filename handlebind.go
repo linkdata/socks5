@@ -22,7 +22,7 @@ func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error
 		defer listener.Close()
 		var addr Addr
 		if addr, err = AddrFromString(listener.Addr().String()); err == nil {
-			addr.ReplaceAny(sess.conn.LocalAddr().String())
+			// addr.ReplaceAny(sess.conn.LocalAddr().String())
 			if err = sendReply(sess.conn, Success, addr); err == nil {
 				_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "listen", addr)
 				var conn net.Conn
