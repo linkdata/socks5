@@ -107,24 +107,35 @@ func TestClient_UDP_Multiple(t *testing.T) {
 		}
 	}()
 
+	conn, err := ts.client.DialContext(ctx, "udp", "0.0.0.0:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	pc := conn.(net.PacketConn)
+
 	for i := 0; i < echoServerNumber-1; i++ {
 		echoAddress := echoServerListener[i].LocalAddr()
 		requestBody := []byte(fmt.Sprintf("Test %d", i))
 		slog.Info("echo to", "addr", echoAddress)
-		pc, err := ts.client.DialContext(ctx, "udp", echoAddress.String())
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = pc.Write(requestBody)
+		_, err = pc.WriteTo(requestBody, echoAddress)
 		if err != nil {
 			t.Fatal(err)
 		}
 		responseBody := make([]byte, len(requestBody)*2)
 		var n int
-		n, err = pc.Read(responseBody)
-		responseBody = responseBody[:n]
+		var addr net.Addr
+		n, addr, err = pc.ReadFrom(responseBody)
 		if err != nil {
 			t.Fatal(err)
+		}
+		responseBody = responseBody[:n]
+		if x := addr.String(); x != echoAddress.String() {
+			t.Error(x)
 		}
 		if !bytes.Equal(requestBody, responseBody) {
 			t.Fatalf("%v got %d: %q want: %q", echoAddress, len(responseBody), responseBody, requestBody)
@@ -136,29 +147,26 @@ func TestClient_UDP_Multiple(t *testing.T) {
 	echoServer := echoServerListener[echoServerNumber-1]
 	echoAddress := echoServer.LocalAddr()
 	requestBody := []byte(fmt.Sprintf("Test %d", echoServerNumber-1))
-	pc, err := ts.client.DialContext(ctx, "udp", echoAddress.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = pc.Write(requestBody)
+	_, err = pc.WriteTo(requestBody, echoAddress)
 	if err != nil {
 		t.Fatal(err)
 	}
 	responseBody := make([]byte, len(requestBody)*2)
 	var n int
-	n, err = pc.Read(responseBody)
-	responseBody = responseBody[:n]
+	var addr net.Addr
+	n, addr, err = pc.ReadFrom(responseBody)
 	if err != nil {
 		t.Fatal(err)
+	}
+	responseBody = responseBody[:n]
+	if x := addr.String(); x != echoAddress.String() {
+		t.Error(x)
 	}
 	if !bytes.Equal(requestBody, responseBody) {
-		t.Fatalf("%v got %d: %q want: %q", echoAddress, len(responseBody), responseBody, requestBody)
+		t.Errorf("%v got %d: %q want: %q", echoAddress, len(responseBody), responseBody, requestBody)
 	}
-
-	err = pc.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	conn.Close()
+	time.Sleep(socks5.UDPTimeout)
 }
 
 func TestClient_UDP_InvalidPacket(t *testing.T) {

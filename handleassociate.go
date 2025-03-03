@@ -16,7 +16,7 @@ const (
 
 var UDPTimeout = time.Second * 10
 
-func (sess *session) handleASSOCIATE(ctx context.Context, clientAddr Addr) (err error) {
+func (sess *session) handleASSOCIATE(ctx context.Context) (err error) {
 	var host string
 	if host, _, err = net.SplitHostPort(sess.conn.LocalAddr().String()); err == nil {
 		var clientUDPConn net.PacketConn
@@ -33,7 +33,7 @@ func (sess *session) handleASSOCIATE(ctx context.Context, clientAddr Addr) (err 
 				if buf, err = res.MarshalBinary(); err == nil {
 					if _, err = sess.conn.Write(buf); err == nil {
 						_ = sess.Debug && sess.LogDebug("ASSOCIATE", "session", sess.conn.RemoteAddr(), "address", res.Addr)
-						err = sess.serveUDP(ctx, sess.conn, clientAddr, res.Addr, clientUDPConn)
+						err = sess.serveUDP(ctx, sess.conn, clientUDPConn)
 					}
 				}
 			}
@@ -43,7 +43,7 @@ func (sess *session) handleASSOCIATE(ctx context.Context, clientAddr Addr) (err 
 	return sess.fail(GeneralFailure, err)
 }
 
-func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientAddr, srvAddr Addr, clientUDPConn net.PacketConn) (err error) {
+func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUDPConn net.PacketConn) (err error) {
 	var tcpClosed atomic.Bool
 	go func() {
 		_, _ = io.Copy(io.Discard, clientTCPConn)
@@ -62,14 +62,6 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientAd
 	var clientNetAddr net.Addr
 	var clientAddress string
 	var buf [maxUdpPacket]byte
-
-	if !clientAddr.IsZero() {
-		clientAddr.ReplaceAny(clientTCPConn.RemoteAddr().String())
-		if clientAddr.Port == 0 {
-			clientAddr.Port = srvAddr.Port
-		}
-		clientNetAddr = clientAddr
-	}
 
 	started := time.Now()
 	err = clientUDPConn.SetReadDeadline(started.Add(UDPTimeout / 10))

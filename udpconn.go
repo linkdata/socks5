@@ -9,7 +9,8 @@ var _ net.PacketConn = &UDPConn{}
 
 type UDPConn struct {
 	targetAddr net.Addr
-	net.Conn   // connection to the proxy server
+	tcpconn    net.Conn // TCP conn to client
+	net.Conn            // packet connection to the proxy server
 }
 
 type udpAddr struct {
@@ -20,14 +21,21 @@ func (ua udpAddr) Network() string {
 	return "udp"
 }
 
-func NewUDPConn(raw net.Conn, address string) (c *UDPConn, err error) {
+func NewUDPConn(raw, tcpconn net.Conn, address string) (c *UDPConn, err error) {
 	var addr Addr
 	if addr, err = AddrFromString(address); err == nil {
 		c = &UDPConn{
 			targetAddr: udpAddr{addr},
+			tcpconn:    tcpconn,
 			Conn:       raw,
 		}
 	}
+	return
+}
+
+func (c *UDPConn) Close() (err error) {
+	err = c.Conn.Close()
+	c.tcpconn.Close()
 	return
 }
 

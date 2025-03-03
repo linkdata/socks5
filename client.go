@@ -104,7 +104,7 @@ func (cli *Client) connect(ctx context.Context, proxyconn net.Conn, cmd CommandT
 		case AssociateCommand:
 			if addr, err = cli.connectCommand(proxyconn, AssociateCommand, ":0"); err == nil {
 				if conn, err = cli.proxyDial(ctx, "udp", addr.String()); err == nil {
-					if conn, err = NewUDPConn(conn, address); err == nil {
+					if conn, err = NewUDPConn(conn, proxyconn, address); err == nil {
 						go func() {
 							defer conn.Close()
 							_, _ = io.Copy(io.Discard, proxyconn)
