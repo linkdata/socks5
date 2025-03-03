@@ -1,6 +1,7 @@
 package socks5
 
 import (
+	"errors"
 	"net"
 )
 
@@ -34,8 +35,7 @@ func NewUDPConn(raw, tcpconn net.Conn, address string) (c *UDPConn, err error) {
 }
 
 func (c *UDPConn) Close() (err error) {
-	err = c.Conn.Close()
-	c.tcpconn.Close()
+	err = errors.Join(c.Conn.Close(), c.tcpconn.Close())
 	return
 }
 
