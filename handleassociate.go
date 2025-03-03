@@ -16,7 +16,7 @@ const (
 
 var UDPTimeout = time.Second * 10
 
-func (sess *session) handleASSOCIATE(ctx context.Context) (err error) {
+func (sess *session) handleASSOCIATE(ctx context.Context, clientAddr Addr) (err error) {
 	var host string
 	if host, _, err = net.SplitHostPort(sess.conn.LocalAddr().String()); err == nil {
 		var clientUDPConn net.PacketConn
@@ -32,8 +32,8 @@ func (sess *session) handleASSOCIATE(ctx context.Context) (err error) {
 				var buf []byte
 				if buf, err = res.MarshalBinary(); err == nil {
 					if _, err = sess.conn.Write(buf); err == nil {
-						_ = sess.Debug && sess.LogDebug("ASSOCIATE", "session", sess.conn.RemoteAddr(), "listen", res.Addr)
-						err = sess.serveUDP(ctx, sess.conn, clientUDPConn)
+						_ = sess.Debug && sess.LogDebug("ASSOCIATE", "session", sess.conn.RemoteAddr(), "address", res.Addr)
+						err = sess.serveUDP(ctx, sess.conn, clientAddr, res.Addr, clientUDPConn)
 					}
 				}
 			}
@@ -43,36 +43,7 @@ func (sess *session) handleASSOCIATE(ctx context.Context) (err error) {
 	return sess.fail(GeneralFailure, err)
 }
 
-type udpService struct {
-	started    time.Time
-	client     net.PacketConn
-	clientaddr net.Addr
-	target     net.Conn
-	targetaddr Addr
-	when       atomic.Int64
-}
-
-func (svc *udpService) serve() {
-	defer svc.target.Close()
-	var buf [maxUdpPacket]byte
-	var err error
-	for err == nil {
-		var n int
-		if n, err = svc.target.Read(buf[:]); err == nil {
-			var b []byte
-			if b, err = (&UDPPacket{Addr: svc.targetaddr, Body: buf[:n]}).AppendBinary(b); err == nil {
-				var nn int
-				if nn, err = svc.client.WriteTo(b, svc.clientaddr); err == nil {
-					if err = MustEqual(nn, len(b), io.ErrShortWrite); err == nil {
-						svc.when.Store(int64(time.Since(svc.started)))
-					}
-				}
-			}
-		}
-	}
-}
-
-func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUDPConn net.PacketConn) (err error) {
+func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientAddr, srvAddr Addr, clientUDPConn net.PacketConn) (err error) {
 	var tcpClosed atomic.Bool
 	go func() {
 		_, _ = io.Copy(io.Discard, clientTCPConn)
@@ -88,9 +59,17 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 		}
 	}()
 
-	var clientAddr net.Addr
-	var wantSource string
+	var clientNetAddr net.Addr
+	var clientAddress string
 	var buf [maxUdpPacket]byte
+
+	if !clientAddr.IsZero() {
+		clientAddr.ReplaceAny(clientTCPConn.RemoteAddr().String())
+		if clientAddr.Port == 0 {
+			clientAddr.Port = srvAddr.Port
+		}
+		clientNetAddr = clientAddr
+	}
 
 	started := time.Now()
 	err = clientUDPConn.SetReadDeadline(started.Add(UDPTimeout / 10))
@@ -100,11 +79,11 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 		var addr net.Addr
 		if n, addr, err = clientUDPConn.ReadFrom(buf[:]); err == nil {
 			gotAddr := addr.String()
-			if clientAddr == nil {
-				clientAddr = addr
-				wantSource = gotAddr
+			if clientNetAddr == nil {
+				clientNetAddr = addr
+				clientAddress = gotAddr
 			}
-			if wantSource == gotAddr {
+			if clientAddress == gotAddr {
 				var pkt *UDPPacket
 				if pkt, err = ParseUDPPacket(buf[:n]); err == nil {
 					var svc *udpService
@@ -112,9 +91,10 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 						var targetConn net.Conn
 						if targetConn, err = c.Server.DialContext(ctx, "udp", pkt.Addr.String()); err == nil {
 							svc = &udpService{
+								srv:        c.Server,
 								started:    started,
 								client:     clientUDPConn,
-								clientaddr: clientAddr,
+								clientaddr: clientNetAddr,
 								target:     targetConn,
 								targetaddr: pkt.Addr,
 							}
@@ -154,4 +134,40 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 func isTimeout(err error) bool {
 	terr, ok := errors.Unwrap(err).(interface{ Timeout() bool })
 	return ok && terr.Timeout()
+}
+
+type udpService struct {
+	srv        *Server
+	started    time.Time
+	client     net.PacketConn
+	clientaddr net.Addr
+	target     net.Conn
+	targetaddr Addr
+	when       atomic.Int64
+}
+
+func (svc *udpService) serve() {
+	defer svc.target.Close()
+	var buf [maxUdpPacket]byte
+	var err error
+	pktconn := svc.target.(net.PacketConn)
+	for err == nil {
+		var n int
+		var srcnetaddr net.Addr
+		if n, srcnetaddr, err = pktconn.ReadFrom(buf[:]); err == nil {
+			var srcaddr Addr
+			if srcaddr, err = AddrFromString(srcnetaddr.String()); err == nil {
+				var b []byte
+				if b, err = (&UDPPacket{Addr: srcaddr, Body: buf[:n]}).MarshalBinary(); err == nil {
+					var nn int
+					if nn, err = svc.client.WriteTo(b, svc.clientaddr); err == nil {
+						if err = MustEqual(nn, len(b), io.ErrShortWrite); err == nil {
+							svc.when.Store(int64(time.Since(svc.started)))
+						}
+					}
+				}
+			}
+		}
+	}
+	svc.srv.LogError("udpService.serve()", "error", err, "client", svc.client.LocalAddr().String(), "target", svc.target.RemoteAddr().String(), "targetaddr", svc.targetaddr.String())
 }

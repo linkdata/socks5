@@ -40,7 +40,12 @@ func (cli *Client) Dial(network, address string) (net.Conn, error) {
 }
 
 func (cli *Client) Listen(ctx context.Context, network, address string) (l net.Listener, err error) {
-	return newBinding(ctx, cli, network, address)
+	err = ErrUnsupportedNetwork
+	switch network {
+	case "tcp", "tcp4", "tcp6":
+		l, err = cli.bindTCP(ctx, address)
+	}
+	return
 }
 
 func (cli *Client) resolve(ctx context.Context, hostport string) (ipandport string, err error) {

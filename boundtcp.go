@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-type binding struct {
+type boundTCP struct {
 	cli      *Client
 	ctx      context.Context
 	addr     Addr          // address proxy server bound for listen
@@ -17,33 +17,31 @@ type binding struct {
 	err      error         // final error
 }
 
-func newBinding(ctx context.Context, cli *Client, network, address string) (bnd *binding, err error) {
-	err = ErrUnsupportedNetwork
-	switch network {
-	case "tcp", "tcp4", "tcp6":
-		var conn net.Conn
-		var addr Addr
-		if conn, addr, err = cli.do(ctx, BindCommand, address); err == nil {
-			bnd = &binding{
-				cli:      cli,
-				ctx:      ctx,
-				ready:    make(chan struct{}, 1),
-				addr:     addr,
-				waitconn: conn,
-			}
-			bnd.ready <- struct{}{}
+var _ net.Listener = &boundTCP{}
+
+func (cli *Client) bindTCP(ctx context.Context, address string) (bnd *boundTCP, err error) {
+	var conn net.Conn
+	var addr Addr
+	if conn, addr, err = cli.do(ctx, BindCommand, address); err == nil {
+		bnd = &boundTCP{
+			cli:      cli,
+			ctx:      ctx,
+			ready:    make(chan struct{}, 1),
+			addr:     addr,
+			waitconn: conn,
 		}
+		bnd.ready <- struct{}{}
 	}
 	return
 }
 
-func (l *binding) startAccept() (conn net.Conn, addr Addr, err error) {
+func (l *boundTCP) startAccept() (conn net.Conn, addr Addr, err error) {
 	conn, addr, err = l.cli.do(l.ctx, BindCommand, l.addr.String())
 	return
 }
 
 // Accept waits for and returns the next connection to the listener.
-func (l *binding) Accept() (conn net.Conn, err error) {
+func (l *boundTCP) Accept() (conn net.Conn, err error) {
 	var currconn net.Conn
 	l.mu.Lock()
 	err = l.err
@@ -72,7 +70,7 @@ func (l *binding) Accept() (conn net.Conn, err error) {
 }
 
 // Close closes the listener.
-func (l *binding) Close() (err error) {
+func (l *boundTCP) Close() (err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.err == nil {
@@ -93,7 +91,7 @@ func (l *binding) Close() (err error) {
 
 // Addr returns the listener's address and port on the proxy server.
 // If listening on the ANY address (0.0.0.0 or ::), it will return the proxy servers address instead of that.
-func (l *binding) Addr() net.Addr {
+func (l *boundTCP) Addr() net.Addr {
 	l.mu.Lock()
 	addr := l.addr
 	conn := l.waitconn

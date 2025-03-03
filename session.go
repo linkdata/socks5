@@ -72,7 +72,7 @@ func (sess *session) handleRequest(ctx context.Context) (err error) {
 		case ConnectCommand:
 			err = sess.handleCONNECT(ctx, req.Addr.String())
 		case AssociateCommand:
-			err = sess.handleASSOCIATE(ctx)
+			err = sess.handleASSOCIATE(ctx, req.Addr)
 		case BindCommand:
 			err = sess.handleBIND(ctx, req.Addr.String())
 		default:

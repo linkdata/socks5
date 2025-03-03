@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	listen, err := net.Listen("tcp", ":1081")
+	listen, err := net.Listen("tcp", ":1081") // #nosec G102
 	if err == nil {
 		defer listen.Close()
 		proxy := socks5.Server{
@@ -18,6 +18,6 @@ func main() {
 			Logger:   slog.Default(),
 			Debug:    true,
 		}
-		proxy.Serve(context.Background(), listen)
+		_ = proxy.Serve(context.Background(), listen)
 	}
 }

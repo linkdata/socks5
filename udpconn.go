@@ -4,6 +4,7 @@ import (
 	"net"
 )
 
+const maxUDPPrefixLength = 3 + 1 + 1 + 255 + 2 // hdr + addrType + strLen + domainName + port
 var _ net.PacketConn = &UDPConn{}
 
 type UDPConn struct {
@@ -29,8 +30,6 @@ func NewUDPConn(raw net.Conn, address string) (c *UDPConn, err error) {
 	}
 	return
 }
-
-const maxUDPPrefixLength = 3 + 1 + 1 + 255 + 2 // hdr + addrType + strLen + domainName + port
 
 func (c *UDPConn) ReadFrom(p []byte) (n int, netaddr net.Addr, err error) {
 	buf := make([]byte, len(p)+maxUDPPrefixLength)
