@@ -164,10 +164,6 @@ func (s Addr) String() string {
 	return net.JoinHostPort(s.Addr, strconv.Itoa(int(s.Port)))
 }
 
-func (s *Addr) IsZero() bool {
-	return s.Port == 0 && (s.Addr == "" || s.Addr == "0.0.0.0" || s.Addr == "::")
-}
-
 func (s *Addr) IsAny() bool {
 	return s.Addr == "0.0.0.0" || s.Addr == "::"
 }

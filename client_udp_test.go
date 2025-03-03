@@ -190,5 +190,4 @@ func TestClient_UDP_InvalidPacket(t *testing.T) {
 	}
 
 	_, _ = pktconn.WriteTo([]byte{0}, addr)
-
 }
