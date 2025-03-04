@@ -89,12 +89,13 @@ func (s *Server) getListener(ctx context.Context, client net.Conn, bindaddress s
 						Listener: newlistener,
 					}
 					s.listeners[key] = l
-					_ = s.Debug && s.LogDebug("server listener start", "adress", key)
+					_ = s.Debug && s.LogDebug("listener open", "key", key)
 				}
 			}
 			if l != nil {
-				l.refs.Add(1)
+				refs := l.refs.Add(1)
 				nl = &listenerproxy{listener: l}
+				_ = s.Debug && s.LogDebug("listener addref", "key", key, "refs", refs)
 			}
 		}
 	}
@@ -162,11 +163,11 @@ func (s *Server) listenerCleanup() {
 	defer s.mu.Unlock()
 	deadline := int64(time.Since(s.Started) - ListenerTimeout)
 	for k, l := range s.listeners {
-		if l.refs.Load() == 0 {
-			if l.died.Load() < deadline {
+		if refs := l.refs.Load(); refs < 1 {
+			if died := l.died.Load(); died < deadline {
 				delete(s.listeners, k)
 				_ = l.Listener.Close()
-				_ = s.Debug && s.LogDebug("listener closed", "key", k)
+				_ = s.Debug && s.LogDebug("listener closed", "key", k, "refs", refs, "died", died)
 			}
 		}
 	}

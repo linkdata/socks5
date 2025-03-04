@@ -9,14 +9,13 @@ import (
 )
 
 type boundTCP struct {
-	cli      *Client
-	ctx      context.Context
-	addr     socks5.Addr   // address proxy server bound for listen
-	ready    chan struct{} // semaphore to mark ready-for-new-accept
-	mu       sync.Mutex    // protects following
-	waitconn net.Conn      // waiting BIND
-	currconn net.Conn      // current BIND
-	err      error         // final error
+	cli   *Client
+	ctx   context.Context
+	addr  socks5.Addr   // address proxy server bound for listen
+	ready chan struct{} // semaphore to mark ready-for-new-accept
+	mu    sync.Mutex    // protects following
+	conn  net.Conn      // waiting BIND
+	err   error         // final error
 }
 
 var _ net.Listener = &boundTCP{}
@@ -26,11 +25,11 @@ func (cli *Client) bindTCP(ctx context.Context, address string) (bnd *boundTCP, 
 	var addr socks5.Addr
 	if conn, addr, err = cli.do(ctx, socks5.BindCommand, address); err == nil {
 		bnd = &boundTCP{
-			cli:      cli,
-			ctx:      ctx,
-			ready:    make(chan struct{}, 1),
-			addr:     addr,
-			waitconn: conn,
+			cli:   cli,
+			ctx:   ctx,
+			ready: make(chan struct{}, 1),
+			addr:  addr,
+			conn:  conn,
 		}
 		bnd.ready <- struct{}{}
 	}
@@ -49,21 +48,23 @@ func (l *boundTCP) Accept() (conn net.Conn, err error) {
 	err = l.err
 	l.mu.Unlock()
 	if err == nil {
-		<-l.ready
-		l.mu.Lock()
-		if err = l.err; err == nil {
-			currconn = l.waitconn
-			l.currconn = currconn
-			l.waitconn, _, l.err = l.startAccept()
-		}
-		l.mu.Unlock()
-		if currconn != nil {
-			defer func() {
-				l.ready <- struct{}{}
-			}()
-			var addr socks5.Addr
-			if addr, err = l.cli.readReply(currconn); err == nil {
-				conn = &connect{Conn: currconn, remoteAddr: addr}
+		if _, ok := <-l.ready; ok {
+			l.mu.Lock()
+			if err = l.err; err == nil {
+				currconn = l.conn
+			}
+			l.mu.Unlock()
+			if currconn != nil {
+				var addr socks5.Addr
+				if addr, err = l.cli.readReply(currconn); err == nil {
+					conn = &connect{Conn: currconn, remoteAddr: addr}
+				}
+				l.mu.Lock()
+				if l.err == nil {
+					l.conn, _, l.err = l.startAccept()
+					l.ready <- struct{}{}
+				}
+				l.mu.Unlock()
 			}
 		}
 	}
@@ -78,15 +79,13 @@ func (l *boundTCP) Close() (err error) {
 	if l.err == nil {
 		l.err = net.ErrClosed
 	}
-	if l.waitconn != nil {
-		err = l.waitconn.Close()
-		l.waitconn = nil
+	if l.conn != nil {
+		err = l.conn.Close()
+		l.conn = nil
 	}
-	if l.currconn != nil {
-		err = l.currconn.Close()
-		l.currconn = nil
-		<-l.ready
+	if l.ready != nil {
 		close(l.ready)
+		l.ready = nil
 	}
 	return
 }
@@ -96,7 +95,7 @@ func (l *boundTCP) Close() (err error) {
 func (l *boundTCP) Addr() net.Addr {
 	l.mu.Lock()
 	addr := l.addr
-	conn := l.waitconn
+	conn := l.conn
 	l.mu.Unlock()
 	if conn != nil {
 		addr.ReplaceAny(conn.RemoteAddr().String())

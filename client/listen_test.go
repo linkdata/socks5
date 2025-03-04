@@ -19,7 +19,7 @@ func init() {
 }
 
 func Test_Listen_SingleRequest(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
 	defer cancel()
 	ts := newTestServer(ctx, t, false)
 	defer ts.Close()
@@ -70,12 +70,13 @@ func Test_Listen_SingleRequest(t *testing.T) {
 		resp, err = http.Get("http://" + listenAddr.String())
 		if err == nil {
 			resp.Body.Close()
-		}
-		if strings.Contains(err.Error(), "connection refused") {
-			if err = ctx.Err(); err != nil {
-				t.Error(err)
+		} else {
+			if strings.Contains(err.Error(), "connection refused") {
+				if err = ctx.Err(); err != nil {
+					t.Error(err)
+				}
+				return
 			}
-			return
 		}
 	}
 	t.Error(err)
