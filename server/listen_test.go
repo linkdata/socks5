@@ -56,8 +56,6 @@ func Test_Listen_SingleRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(server.ListenerTimeout * 2)
-
 	select {
 	case <-time.NewTimer(time.Second).C:
 		t.Error("http.Serve did not stop")
