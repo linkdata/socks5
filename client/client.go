@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/netip"
+	"net/url"
 	"time"
 
 	"github.com/linkdata/socks5"
@@ -12,14 +13,37 @@ import (
 
 type Client struct {
 	ProxyAddress        string               // proxy server address
-	ProxyDialer         socks5.ContextDialer // dialer to use when dialing the proxy, nil for DefaultProxyDialer
+	ProxyDialer         socks5.ContextDialer // dialer to use when dialing the proxy, nil for socks5.DefaultDialer
 	ProxyUsername       string               // user name
 	ProxyPassword       string               // user password
 	socks5.HostLookuper                      // resolver to use, nil for net.DefaultResolver
 	LocalResolve        bool                 // if true, always resolve hostnames with HostLookuper
 }
 
-var DefaultProxyDialer socks5.ContextDialer = &net.Dialer{}
+func New(urlstr string) (cli *Client, err error) {
+	var u *url.URL
+	if u, err = url.Parse(urlstr); err == nil {
+		localResolve := true
+		switch u.Scheme {
+		case "socks5":
+		case "socks5h":
+			localResolve = false
+		default:
+			err = socks5.ErrUnsupportedScheme
+		}
+		if err == nil {
+			cli = &Client{
+				ProxyAddress: u.Host,
+				LocalResolve: localResolve,
+			}
+			if ui := u.User; ui != nil {
+				cli.ProxyUsername = ui.Username()
+				cli.ProxyPassword, _ = ui.Password()
+			}
+		}
+	}
+	return
+}
 
 func (cli *Client) DialContext(ctx context.Context, network, address string) (conn net.Conn, err error) {
 	err = socks5.ErrUnsupportedNetwork
@@ -194,7 +218,7 @@ func (cli *Client) resolver() (hl socks5.HostLookuper) {
 func (cli *Client) proxyDial(ctx context.Context, network, address string) (net.Conn, error) {
 	proxyDial := cli.ProxyDialer
 	if proxyDial == nil {
-		proxyDial = DefaultProxyDialer
+		proxyDial = socks5.DefaultDialer
 	}
 	return proxyDial.DialContext(ctx, network, address)
 }

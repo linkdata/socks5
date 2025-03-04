@@ -15,4 +15,5 @@ var (
 	ErrInvalidUDPPacket        = errors.New("invalid udp packet")
 	ErrFragmentedUDPPacket     = errors.New("fragmented udp packet")
 	ErrNoAcceptableAuthMethods = errors.New("no acceptable auth methods")
+	ErrUnsupportedScheme       = errors.New("unsupported scheme")
 )
