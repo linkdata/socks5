@@ -8,7 +8,7 @@ import (
 	"github.com/linkdata/socks5"
 )
 
-type boundTCP struct {
+type listener struct {
 	cli   *Client
 	ctx   context.Context
 	addr  socks5.Addr   // address proxy server bound for listen
@@ -18,13 +18,13 @@ type boundTCP struct {
 	err   error         // final error
 }
 
-var _ net.Listener = &boundTCP{}
+var _ net.Listener = &listener{}
 
-func (cli *Client) bindTCP(ctx context.Context, address string) (bnd *boundTCP, err error) {
+func (cli *Client) bindTCP(ctx context.Context, address string) (bnd *listener, err error) {
 	var conn net.Conn
 	var addr socks5.Addr
 	if conn, addr, err = cli.do(ctx, socks5.BindCommand, address); err == nil {
-		bnd = &boundTCP{
+		bnd = &listener{
 			cli:   cli,
 			ctx:   ctx,
 			ready: make(chan struct{}, 1),
@@ -36,13 +36,13 @@ func (cli *Client) bindTCP(ctx context.Context, address string) (bnd *boundTCP, 
 	return
 }
 
-func (l *boundTCP) startAccept() (conn net.Conn, addr socks5.Addr, err error) {
+func (l *listener) startAccept() (conn net.Conn, addr socks5.Addr, err error) {
 	conn, addr, err = l.cli.do(l.ctx, socks5.BindCommand, l.addr.String())
 	return
 }
 
 // Accept waits for and returns the next connection to the listener.
-func (l *boundTCP) Accept() (conn net.Conn, err error) {
+func (l *listener) Accept() (conn net.Conn, err error) {
 	var currconn net.Conn
 	l.mu.Lock()
 	err = l.err
@@ -73,7 +73,7 @@ func (l *boundTCP) Accept() (conn net.Conn, err error) {
 }
 
 // Close closes the listener.
-func (l *boundTCP) Close() (err error) {
+func (l *listener) Close() (err error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.err == nil {
@@ -92,7 +92,7 @@ func (l *boundTCP) Close() (err error) {
 
 // Addr returns the listener's address and port on the proxy server.
 // If listening on the ANY address (0.0.0.0 or ::), it will return the proxy servers address instead of that.
-func (l *boundTCP) Addr() net.Addr {
+func (l *listener) Addr() net.Addr {
 	l.mu.Lock()
 	addr := l.addr
 	conn := l.conn
