@@ -16,8 +16,6 @@ const (
 	maxUdpPacket = math.MaxUint16 - 28
 )
 
-var UDPTimeout = time.Second * 10
-
 func (sess *session) handleASSOCIATE(ctx context.Context) (err error) {
 	var host string
 	if host, _, err = net.SplitHostPort(sess.conn.LocalAddr().String()); err == nil {

@@ -6,12 +6,15 @@ import (
 	"net"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/linkdata/socks5"
 )
 
 // Server is a SOCKS5 proxy server.
 type Server struct {
+	Started time.Time // time when Server.Serve() was called
+
 	// Dialer optionally specifies the ContextDialer to use for outgoing connections.
 	// If nil, DefaultDialer will be used, which if not changed is a net.Dialer.
 	Dialer socks5.ContextDialer
@@ -29,8 +32,12 @@ type Server struct {
 	listeners map[string]*listener
 }
 
-var DefaultDialer socks5.ContextDialer = &net.Dialer{}
-var LogPrefix = "socks5: "
+var (
+	DefaultDialer   socks5.ContextDialer = &net.Dialer{}
+	LogPrefix                            = "socks5: "
+	UDPTimeout                           = time.Second * 10
+	ListenerTimeout                      = time.Second * 1
+)
 
 func (s *Server) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	dialer := s.Dialer
@@ -70,9 +77,6 @@ func (s *Server) getListener(ctx context.Context, client net.Conn, bindaddress s
 		if err == nil {
 			s.mu.Lock()
 			defer s.mu.Unlock()
-			if s.listeners == nil {
-				s.listeners = make(map[string]*listener)
-			}
 			l := s.listeners[key]
 			if l == nil {
 				if newlistener == nil {
@@ -140,14 +144,45 @@ func (s *Server) close() {
 func (s *Server) Serve(ctx context.Context, l net.Listener) (err error) {
 	defer l.Close()
 	defer s.close()
+	s.Started = time.Now()
 	errchan := make(chan error, 1)
 	s.LogInfo("listening", "addr", l.Addr())
+	s.listeners = make(map[string]*listener)
+	go s.listenerMaintenance(ctx)
 	go s.listen(ctx, errchan, l)
 	select {
 	case <-ctx.Done():
 	case err = <-errchan:
 	}
 	return
+}
+
+func (s *Server) listenerCleanup() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	deadline := int64(time.Since(s.Started) - ListenerTimeout)
+	for k, l := range s.listeners {
+		if l.refs.Load() == 0 {
+			if l.died.Load() < deadline {
+				delete(s.listeners, k)
+				_ = l.Listener.Close()
+				_ = s.Debug && s.LogDebug("listener closed", "key", k)
+			}
+		}
+	}
+}
+
+func (s *Server) listenerMaintenance(ctx context.Context) {
+	tmr := time.NewTicker(ListenerTimeout)
+	defer tmr.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-tmr.C:
+			s.listenerCleanup()
+		}
+	}
 }
 
 func (s *Server) listen(ctx context.Context, errchan chan<- error, l net.Listener) {

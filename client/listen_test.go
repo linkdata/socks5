@@ -11,10 +11,15 @@ import (
 	"time"
 
 	"github.com/linkdata/socks5/client"
+	"github.com/linkdata/socks5/server"
 )
 
+func init() {
+	server.ListenerTimeout = time.Millisecond * 10
+}
+
 func Test_Listen_SingleRequest(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*1)
 	defer cancel()
 	ts := newTestServer(ctx, t, false)
 	defer ts.Close()
@@ -32,6 +37,7 @@ func Test_Listen_SingleRequest(t *testing.T) {
 	if listenAddr == nil {
 		t.Fatal("listener.Addr() returned nil")
 	}
+	t.Log("listenAddr", listenAddr.String())
 
 	errCh := make(chan error)
 	go func() {
@@ -50,6 +56,8 @@ func Test_Listen_SingleRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	time.Sleep(server.ListenerTimeout * 2)
+
 	select {
 	case <-time.NewTimer(time.Second).C:
 		t.Error("http.Serve did not stop")
@@ -66,6 +74,9 @@ func Test_Listen_SingleRequest(t *testing.T) {
 			resp.Body.Close()
 		}
 		if strings.Contains(err.Error(), "connection refused") {
+			if err = ctx.Err(); err != nil {
+				t.Error(err)
+			}
 			return
 		}
 	}

@@ -3,6 +3,7 @@ package server
 import (
 	"net"
 	"sync/atomic"
+	"time"
 )
 
 type listener struct {
@@ -10,17 +11,14 @@ type listener struct {
 	key string
 	net.Listener
 	refs atomic.Int32
+	died atomic.Int64
 }
 
 func (l *listener) Close() (err error) {
-	if l.refs.Add(-1) == 0 {
-		l.srv.mu.Lock()
-		if l.srv.listeners != nil {
-			_ = l.srv.Debug && l.srv.LogDebug("listener.Close(): listener stop", "address", l.key)
-			err = l.Listener.Close()
-			delete(l.srv.listeners, l.key)
-		}
-		l.srv.mu.Unlock()
+	if refs := l.refs.Add(-1); refs < 1 {
+		died := int64(time.Since(l.srv.Started))
+		l.died.Store(died)
+		_ = l.srv.Debug && l.srv.LogDebug("listener deref", "key", l.key, "refs", refs, "died", died)
 	}
 	return
 }
