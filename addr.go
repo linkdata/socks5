@@ -133,10 +133,7 @@ func (s Addr) AppendBinary(inbuf []byte) (outbuf []byte, err error) {
 			data, err = addr.AppendBinary(data)
 		}
 	case DomainName:
-		if err = MustStr(s.Addr, ErrInvalidDomainName); err == nil {
-			data = append(data, byte(len(s.Addr)))
-			data = append(data, []byte(s.Addr)...)
-		}
+		data, err = AppendString(data, s.Addr, ErrInvalidDomainName)
 	case Ipv6:
 		if addr, err = requireIPv6(s.Addr); err == nil {
 			data, err = addr.AppendBinary(data)

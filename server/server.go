@@ -1,60 +1,27 @@
-// Copyright (c) Tailscale Inc & AUTHORS
-// SPDX-License-Identifier: BSD-3-Clause
-
-package socks5
+package server
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net"
-	"strconv"
 	"sync"
 	"sync/atomic"
+
+	"github.com/linkdata/socks5"
 )
-
-type AuthMethod byte
-
-// Authentication METHODs described in RFC 1928, section 3.
-const (
-	NoAuthRequired   AuthMethod = 0
-	PasswordAuth     AuthMethod = 2
-	NoAcceptableAuth AuthMethod = 255
-)
-
-// PasswordAuthVersion is the auth version byte described in RFC 1929.
-const PasswordAuthVersion = 1
-
-// Socks5Version is the byte that represents the SOCKS version
-// in requests.
-const Socks5Version byte = 5
-
-// CommandType are the bytes sent in SOCKS5 packets
-// that represent the kind of connection the client needs.
-type CommandType byte
-
-// The set of valid SOCKS5 commands as described in RFC 1928.
-const (
-	ConnectCommand   CommandType = 1
-	BindCommand      CommandType = 2
-	AssociateCommand CommandType = 3
-)
-
-var ErrInvalidPortNumber = errors.New("invalid port number")
-var ErrBadSOCKSAuthVersion = errors.New("bad SOCKS auth version")
 
 // Server is a SOCKS5 proxy server.
 type Server struct {
 	// Dialer optionally specifies the ContextDialer to use for outgoing connections.
 	// If nil, DefaultDialer will be used, which if not changed is a net.Dialer.
-	Dialer ContextDialer
+	Dialer socks5.ContextDialer
 
 	// Username and Password, if set, are the credential clients must provide.
 	Username string
 	Password string
 
 	// If not nil, use this Logger (compatible with log/slog)
-	Logger Logger
+	Logger socks5.Logger
 	Debug  bool // if true, output debug logging using Logger.Info
 
 	closed    atomic.Bool
@@ -62,7 +29,7 @@ type Server struct {
 	listeners map[string]*listener
 }
 
-var DefaultDialer ContextDialer = &net.Dialer{}
+var DefaultDialer socks5.ContextDialer = &net.Dialer{}
 var LogPrefix = "socks5: "
 
 func (s *Server) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -201,31 +168,15 @@ func (s *Server) startConn(ctx context.Context, clientConn net.Conn) {
 	_ = s.Debug && s.LogDebug("session stop", "session", clientConn.RemoteAddr(), "err", err)
 }
 
-func SplitHostPort(hostport string) (host string, port uint16, err error) {
-	var portStr string
-	if host, portStr, err = net.SplitHostPort(hostport); err == nil {
-		var portInt int
-		if portInt, err = strconv.Atoi(portStr); err == nil {
-			if portInt >= 0 && portInt <= 0xFFFF {
-				return host, uint16(portInt), nil
-			}
-			err = ErrInvalidPortNumber
-		}
-	}
-	return
-}
-
-var ErrNoAcceptableAuthMethods = errors.New("no acceptable auth methods")
-
-func readClientGreeting(r io.Reader) (authMethods []AuthMethod, err error) {
+func readClientGreeting(r io.Reader) (authMethods []socks5.AuthMethod, err error) {
 	var hdr [2]byte
 	if _, err = io.ReadFull(r, hdr[:]); err == nil {
-		if err = MustEqual(hdr[0], Socks5Version, ErrVersion); err == nil {
+		if err = socks5.MustEqual(hdr[0], socks5.Socks5Version, socks5.ErrVersion); err == nil {
 			count := int(hdr[1])
 			methods := make([]byte, count)
 			if _, err = io.ReadFull(r, methods); err == nil {
 				for _, m := range methods {
-					authMethods = append(authMethods, AuthMethod(m))
+					authMethods = append(authMethods, socks5.AuthMethod(m))
 				}
 			}
 		}
@@ -236,7 +187,7 @@ func readClientGreeting(r io.Reader) (authMethods []AuthMethod, err error) {
 func parseClientAuth(r io.Reader) (usr, pwd string, err error) {
 	var hdr [2]byte
 	if _, err = io.ReadFull(r, hdr[:]); err == nil {
-		if err = MustEqual(hdr[0], PasswordAuthVersion, ErrBadSOCKSAuthVersion); err == nil {
+		if err = socks5.MustEqual(hdr[0], socks5.PasswordAuthVersion, socks5.ErrBadSOCKSAuthVersion); err == nil {
 			usrLen := int(hdr[1])
 			usrBytes := make([]byte, usrLen)
 			if _, err = io.ReadFull(r, usrBytes); err == nil {

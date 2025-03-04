@@ -1,4 +1,4 @@
-package socks5
+package server
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"net"
 	"sync/atomic"
 	"time"
+
+	"github.com/linkdata/socks5"
 )
 
 const (
@@ -24,10 +26,10 @@ func (sess *session) handleASSOCIATE(ctx context.Context) (err error) {
 			defer clientUDPConn.Close()
 			var bindAddr string
 			var bindPort uint16
-			if bindAddr, bindPort, err = SplitHostPort(clientUDPConn.LocalAddr().String()); err == nil {
+			if bindAddr, bindPort, err = socks5.SplitHostPort(clientUDPConn.LocalAddr().String()); err == nil {
 				res := &Response{
-					Reply: Success,
-					Addr:  AddrFromHostPort(bindAddr, bindPort),
+					Reply: socks5.Success,
+					Addr:  socks5.AddrFromHostPort(bindAddr, bindPort),
 				}
 				var buf []byte
 				if buf, err = res.MarshalBinary(); err == nil {
@@ -40,7 +42,7 @@ func (sess *session) handleASSOCIATE(ctx context.Context) (err error) {
 		}
 	}
 	sess.maybeLogError(err, "ASSOCIATE", "session", sess.conn.RemoteAddr())
-	return sess.fail(GeneralFailure, err)
+	return sess.fail(socks5.GeneralFailure, err)
 }
 
 func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUDPConn net.PacketConn) (err error) {
@@ -51,7 +53,7 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 		_ = clientUDPConn.Close()
 	}()
 
-	udpServicers := map[Addr]*udpService{}
+	udpServicers := map[socks5.Addr]*udpService{}
 
 	defer func() {
 		for _, svc := range udpServicers {
@@ -76,8 +78,8 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 				clientAddress = gotAddr
 			}
 			if clientAddress == gotAddr {
-				var pkt *UDPPacket
-				if pkt, err = ParseUDPPacket(buf[:n]); err == nil {
+				var pkt *socks5.UDPPacket
+				if pkt, err = socks5.ParseUDPPacket(buf[:n]); err == nil {
 					var svc *udpService
 					if svc = udpServicers[pkt.Addr]; svc == nil {
 						var targetConn net.Conn
@@ -97,7 +99,7 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 					if svc != nil {
 						var nn int
 						if nn, err = svc.target.Write(pkt.Body); err == nil {
-							if err = MustEqual(nn, len(pkt.Body), io.ErrShortWrite); err == nil {
+							if err = socks5.MustEqual(nn, len(pkt.Body), io.ErrShortWrite); err == nil {
 								svc.when.Store(int64(time.Since(started)))
 							}
 						}
@@ -134,7 +136,7 @@ type udpService struct {
 	client     net.PacketConn
 	clientaddr net.Addr
 	target     net.Conn
-	targetaddr Addr
+	targetaddr socks5.Addr
 	when       atomic.Int64
 }
 
@@ -147,13 +149,13 @@ func (svc *udpService) serve() {
 		var n int
 		var srcnetaddr net.Addr
 		if n, srcnetaddr, err = pktconn.ReadFrom(buf[:]); err == nil {
-			var srcaddr Addr
-			if srcaddr, err = AddrFromString(srcnetaddr.String()); err == nil {
+			var srcaddr socks5.Addr
+			if srcaddr, err = socks5.AddrFromString(srcnetaddr.String()); err == nil {
 				var b []byte
-				if b, err = (&UDPPacket{Addr: srcaddr, Body: buf[:n]}).MarshalBinary(); err == nil {
+				if b, err = (&socks5.UDPPacket{Addr: srcaddr, Body: buf[:n]}).MarshalBinary(); err == nil {
 					var nn int
 					if nn, err = svc.client.WriteTo(b, svc.clientaddr); err == nil {
-						if err = MustEqual(nn, len(b), io.ErrShortWrite); err == nil {
+						if err = socks5.MustEqual(nn, len(b), io.ErrShortWrite); err == nil {
 							svc.when.Store(int64(time.Since(svc.started)))
 						}
 					}

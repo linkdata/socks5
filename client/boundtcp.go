@@ -1,15 +1,17 @@
-package socks5
+package client
 
 import (
 	"context"
 	"net"
 	"sync"
+
+	"github.com/linkdata/socks5"
 )
 
 type boundTCP struct {
 	cli      *Client
 	ctx      context.Context
-	addr     Addr          // address proxy server bound for listen
+	addr     socks5.Addr   // address proxy server bound for listen
 	ready    chan struct{} // semaphore to mark ready-for-new-accept
 	mu       sync.Mutex    // protects following
 	waitconn net.Conn      // waiting BIND
@@ -21,8 +23,8 @@ var _ net.Listener = &boundTCP{}
 
 func (cli *Client) bindTCP(ctx context.Context, address string) (bnd *boundTCP, err error) {
 	var conn net.Conn
-	var addr Addr
-	if conn, addr, err = cli.do(ctx, BindCommand, address); err == nil {
+	var addr socks5.Addr
+	if conn, addr, err = cli.do(ctx, socks5.BindCommand, address); err == nil {
 		bnd = &boundTCP{
 			cli:      cli,
 			ctx:      ctx,
@@ -35,8 +37,8 @@ func (cli *Client) bindTCP(ctx context.Context, address string) (bnd *boundTCP, 
 	return
 }
 
-func (l *boundTCP) startAccept() (conn net.Conn, addr Addr, err error) {
-	conn, addr, err = l.cli.do(l.ctx, BindCommand, l.addr.String())
+func (l *boundTCP) startAccept() (conn net.Conn, addr socks5.Addr, err error) {
+	conn, addr, err = l.cli.do(l.ctx, socks5.BindCommand, l.addr.String())
 	return
 }
 
@@ -59,13 +61,13 @@ func (l *boundTCP) Accept() (conn net.Conn, err error) {
 			defer func() {
 				l.ready <- struct{}{}
 			}()
-			var addr Addr
+			var addr socks5.Addr
 			if addr, err = l.cli.readReply(currconn); err == nil {
 				conn = &connect{Conn: currconn, remoteAddr: addr}
 			}
 		}
 	}
-	err = Note(err, "binding.Accept")
+	err = socks5.Note(err, "binding.Accept")
 	return
 }
 

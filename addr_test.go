@@ -104,6 +104,13 @@ func TestAddr_MarshalBinary(t *testing.T) {
 				if !reflect.DeepEqual(gotaddr, tt.addr) {
 					t.Errorf("ParseAddr()\n got %#v\nwant %#v\n", gotaddr, tt.addr)
 				}
+				check, err := socks5.AddrFromString(gotaddr.String())
+				if err != nil {
+					t.Error(err)
+				}
+				if !reflect.DeepEqual(check, gotaddr) {
+					t.Errorf(" got %#v\nwant %#v\n", check, gotaddr)
+				}
 			} else {
 				if err == nil {
 					t.Errorf("ParseAddr() returned no error")
@@ -123,6 +130,18 @@ func TestAddr_String(t *testing.T) {
 		t.Error(x)
 	}
 	if x := addr.Network(); x != "tcp" {
+		t.Error(x)
+	}
+}
+
+func TestAddr_ReplaceAny(t *testing.T) {
+	addr := socks5.Addr{
+		Type: socks5.Ipv4,
+		Addr: "0.0.0.0",
+		Port: 1234,
+	}
+	addr.ReplaceAny("[::1]:444")
+	if x := addr.String(); x != "[::1]:1234" {
 		t.Error(x)
 	}
 }

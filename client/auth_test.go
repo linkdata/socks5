@@ -1,4 +1,4 @@
-package socks5_test
+package client_test
 
 import (
 	"context"
@@ -12,11 +12,11 @@ import (
 	"github.com/linkdata/socks5"
 )
 
-func TestClient_Auth_None(t *testing.T) {
+func Test_Auth_None(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, false)
-	defer ts.close()
+	defer ts.Close()
 
 	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
@@ -24,7 +24,7 @@ func TestClient_Auth_None(t *testing.T) {
 	defer httpsrv.Close()
 
 	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
 	resp, err := httpcli.Get(httpsrv.URL)
 	if err != nil {
 		t.Fatal(err)
@@ -32,11 +32,11 @@ func TestClient_Auth_None(t *testing.T) {
 	resp.Body.Close()
 }
 
-func TestClient_Auth_NoAcceptable(t *testing.T) {
+func Test_Auth_NoAcceptable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, true)
-	defer ts.close()
+	defer ts.Close()
 
 	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
@@ -44,7 +44,7 @@ func TestClient_Auth_NoAcceptable(t *testing.T) {
 	defer httpsrv.Close()
 
 	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
 	resp, err := httpcli.Get(httpsrv.URL)
 	if resp != nil {
 		resp.Body.Close()
@@ -54,22 +54,22 @@ func TestClient_Auth_NoAcceptable(t *testing.T) {
 	}
 }
 
-func TestClient_Auth_Password(t *testing.T) {
+func Test_Auth_Password(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, true)
-	defer ts.close()
+	defer ts.Close()
 
 	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 	defer httpsrv.Close()
 
-	ts.client.ProxyUsername = "u"
-	ts.client.ProxyPassword = "p"
+	ts.Client.ProxyUsername = "u"
+	ts.Client.ProxyPassword = "p"
 
 	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
 	resp, err := httpcli.Get(httpsrv.URL)
 	if err != nil {
 		t.Fatal(err)
@@ -77,22 +77,22 @@ func TestClient_Auth_Password(t *testing.T) {
 	resp.Body.Close()
 }
 
-func TestClient_Auth_InvalidPassword(t *testing.T) {
+func Test_Auth_InvalidPassword(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, true)
-	defer ts.close()
+	defer ts.Close()
 
 	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 	defer httpsrv.Close()
 
-	ts.client.ProxyUsername = "u"
-	ts.client.ProxyPassword = strings.Repeat("x", 256)
+	ts.Client.ProxyUsername = "u"
+	ts.Client.ProxyPassword = strings.Repeat("x", 256)
 
 	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
 	resp, err := httpcli.Get(httpsrv.URL)
 	if resp != nil {
 		resp.Body.Close()
@@ -102,22 +102,21 @@ func TestClient_Auth_InvalidPassword(t *testing.T) {
 	}
 }
 
-func TestClient_Auth_WrongPassword(t *testing.T) {
+func Test_Auth_WrongPassword(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, true)
-	defer ts.close()
+	defer ts.Close()
 
 	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
 	}))
 	defer httpsrv.Close()
 
-	ts.client.ProxyUsername = "u"
-	ts.client.ProxyPassword = "x"
-
+	ts.Client.ProxyUsername = "u"
+	ts.Client.ProxyPassword = "x"
 	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
 	resp, err := httpcli.Get(httpsrv.URL)
 	if resp != nil {
 		resp.Body.Close()

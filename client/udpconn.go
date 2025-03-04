@@ -1,8 +1,10 @@
-package socks5
+package client
 
 import (
 	"errors"
 	"net"
+
+	"github.com/linkdata/socks5"
 )
 
 const maxUDPPrefixLength = 3 + 1 + 1 + 255 + 2 // hdr + addrType + strLen + domainName + port
@@ -23,8 +25,8 @@ func (ua udpAddr) Network() string {
 }
 
 func NewUDPConn(raw, tcpconn net.Conn, address string) (c *UDPConn, err error) {
-	var addr Addr
-	if addr, err = AddrFromString(address); err == nil {
+	var addr socks5.Addr
+	if addr, err = socks5.AddrFromString(address); err == nil {
 		c = &UDPConn{
 			targetAddr: udpAddr{addr},
 			tcpconn:    tcpconn,
@@ -42,8 +44,8 @@ func (c *UDPConn) Close() (err error) {
 func (c *UDPConn) ReadFrom(p []byte) (n int, netaddr net.Addr, err error) {
 	buf := make([]byte, len(p)+maxUDPPrefixLength)
 	if n, err = c.Conn.Read(buf); err == nil {
-		var pkt *UDPPacket
-		if pkt, err = ParseUDPPacket(buf[:n]); err == nil {
+		var pkt *socks5.UDPPacket
+		if pkt, err = socks5.ParseUDPPacket(buf[:n]); err == nil {
 			n = copy(p, pkt.Body)
 			netaddr = udpAddr{Addr: pkt.Addr}
 		}
@@ -62,7 +64,7 @@ func (c *UDPConn) Read(b []byte) (n int, err error) {
 	return
 }
 
-func (c *UDPConn) writeTo(p []byte, addr Addr) (n int, err error) {
+func (c *UDPConn) writeTo(p []byte, addr socks5.Addr) (n int, err error) {
 	var buf []byte
 	buf = append(buf, 0, 0, 0) // udp prefix
 	if buf, err = addr.AppendBinary(buf); err == nil {
@@ -76,8 +78,8 @@ func (c *UDPConn) writeTo(p []byte, addr Addr) (n int, err error) {
 }
 
 func (c *UDPConn) WriteTo(p []byte, netaddr net.Addr) (n int, err error) {
-	var addr Addr
-	if addr, err = AddrFromString(netaddr.String()); err == nil {
+	var addr socks5.Addr
+	if addr, err = socks5.AddrFromString(netaddr.String()); err == nil {
 		n, err = c.writeTo(p, addr)
 	}
 	return

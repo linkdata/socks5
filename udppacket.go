@@ -2,16 +2,12 @@ package socks5
 
 import (
 	"bytes"
-	"errors"
 )
 
 type UDPPacket struct {
 	Addr Addr
 	Body []byte
 }
-
-var ErrInvalidUDPPacket = errors.New("invalid udp packet")
-var ErrFragmentedUDPPacket = errors.New("fragmented udp packet")
 
 func requireValidHeader(data []byte) (err error) {
 	if len(data) < 4 || data[0] != 0 || data[1] != 0 {

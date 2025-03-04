@@ -1,4 +1,4 @@
-package socks5_test
+package client_test
 
 import (
 	"context"
@@ -9,11 +9,11 @@ import (
 	"time"
 )
 
-func TestClient_Resolve_Remote(t *testing.T) {
+func Test_Resolve_Remote(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, false)
-	defer ts.close()
+	defer ts.Close()
 
 	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
@@ -21,7 +21,7 @@ func TestClient_Resolve_Remote(t *testing.T) {
 	defer httpsrv.Close()
 
 	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
 	resp, err := httpcli.Get(strings.ReplaceAll(httpsrv.URL, "127.0.0.1", "localhost"))
 	if err != nil {
 		t.Fatal(err)
@@ -29,13 +29,13 @@ func TestClient_Resolve_Remote(t *testing.T) {
 	resp.Body.Close()
 }
 
-func TestClient_Resolve_Local(t *testing.T) {
+func Test_Resolve_Local(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, false)
-	defer ts.close()
+	defer ts.Close()
 
-	ts.client.LocalResolve = true
+	ts.Client.LocalResolve = true
 
 	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok"))
@@ -43,7 +43,7 @@ func TestClient_Resolve_Local(t *testing.T) {
 	defer httpsrv.Close()
 
 	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.client.DialContext}
+	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
 	resp, err := httpcli.Get(strings.ReplaceAll(httpsrv.URL, "127.0.0.1", "localhost"))
 	if err != nil {
 		t.Fatal(err)

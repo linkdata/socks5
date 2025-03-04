@@ -1,9 +1,10 @@
-package socks5
+package server
 
 import (
 	"context"
-	"errors"
 	"net"
+
+	"github.com/linkdata/socks5"
 )
 
 type session struct {
@@ -11,11 +12,8 @@ type session struct {
 	conn    net.Conn // client session connection
 }
 
-var ErrUnsupportedCommand = errors.New("unsupported command")
-var ErrAuthFailed = errors.New("authentication failed")
-
 func (sess *session) serve(ctx context.Context) (err error) {
-	var authMethod AuthMethod
+	var authMethod socks5.AuthMethod
 	if authMethod, err = sess.negotiateAuth(); err == nil {
 		if err = sess.verifyAuth(authMethod); err == nil {
 			err = sess.handleRequest(ctx)
@@ -24,68 +22,68 @@ func (sess *session) serve(ctx context.Context) (err error) {
 	return
 }
 
-func (sess *session) verifyAuth(authMethod AuthMethod) (err error) {
-	if authMethod == PasswordAuth {
+func (sess *session) verifyAuth(authMethod socks5.AuthMethod) (err error) {
+	if authMethod == socks5.PasswordAuth {
 		var user, pwd string
 		if user, pwd, err = parseClientAuth(sess.conn); err == nil {
 			if user == sess.Server.Username && pwd == sess.Server.Password {
-				_, err = sess.conn.Write([]byte{1, byte(Success)}) // auth success
+				_, err = sess.conn.Write([]byte{1, byte(socks5.Success)}) // auth success
 				return
 			}
-			err = ErrAuthFailed
+			err = socks5.ErrAuthFailed
 		}
-		_, _ = sess.conn.Write([]byte{1, byte(GeneralFailure)}) // auth error
+		_, _ = sess.conn.Write([]byte{1, byte(socks5.GeneralFailure)}) // auth error
 	}
 	return
 }
 
-func requireAuthMethod(authMethod AuthMethod, authMethods []AuthMethod) (err error) {
+func requireAuthMethod(authMethod socks5.AuthMethod, authMethods []socks5.AuthMethod) (err error) {
 	for _, m := range authMethods {
 		if m == authMethod {
 			return nil
 		}
 	}
-	return ErrNoAcceptableAuthMethods
+	return socks5.ErrNoAcceptableAuthMethods
 }
 
-func (sess *session) negotiateAuth() (authMethod AuthMethod, err error) {
-	authMethod = NoAuthRequired
+func (sess *session) negotiateAuth() (authMethod socks5.AuthMethod, err error) {
+	authMethod = socks5.NoAuthRequired
 	if sess.Server.Username != "" || sess.Server.Password != "" {
-		authMethod = PasswordAuth
+		authMethod = socks5.PasswordAuth
 	}
-	var authMethods []AuthMethod
+	var authMethods []socks5.AuthMethod
 	if authMethods, err = readClientGreeting(sess.conn); err == nil {
 		if err = requireAuthMethod(authMethod, authMethods); err == nil {
-			_, err = sess.conn.Write([]byte{Socks5Version, byte(authMethod)})
+			_, err = sess.conn.Write([]byte{socks5.Socks5Version, byte(authMethod)})
 			return
 		}
 	}
-	_, _ = sess.conn.Write([]byte{Socks5Version, byte(NoAcceptableAuth)})
+	_, _ = sess.conn.Write([]byte{socks5.Socks5Version, byte(socks5.NoAcceptableAuth)})
 	return
 }
 
 func (sess *session) handleRequest(ctx context.Context) (err error) {
 	var req *Request
-	replyCode := GeneralFailure
+	replyCode := socks5.GeneralFailure
 	if req, err = ReadRequest(sess.conn); err == nil {
 		switch req.Cmd {
-		case ConnectCommand:
+		case socks5.ConnectCommand:
 			err = sess.handleCONNECT(ctx, req.Addr.String())
-		case AssociateCommand:
+		case socks5.AssociateCommand:
 			err = sess.handleASSOCIATE(ctx)
-		case BindCommand:
+		case socks5.BindCommand:
 			err = sess.handleBIND(ctx, req.Addr.String())
 		default:
-			replyCode = CommandNotSupported
-			err = ErrUnsupportedCommand
+			replyCode = socks5.CommandNotSupported
+			err = socks5.ErrUnsupportedCommand
 		}
 	}
 	return sess.fail(replyCode, err)
 }
 
-func (sess *session) fail(replyCode ReplyCode, err error) error {
+func (sess *session) fail(replyCode socks5.ReplyCode, err error) error {
 	if err != nil {
-		rsp := Response{Addr: ZeroAddr, Reply: replyCode}
+		rsp := Response{Addr: socks5.ZeroAddr, Reply: replyCode}
 		buf, _ := rsp.MarshalBinary()
 		_, _ = sess.conn.Write(buf)
 	}

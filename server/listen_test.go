@@ -1,4 +1,4 @@
-package socks5_test
+package server_test
 
 import (
 	"context"
@@ -8,18 +8,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/linkdata/socks5"
+	"github.com/linkdata/socks5/client"
 )
 
-func TestClient_Listen_SingleRequest(t *testing.T) {
+func Test_Listen_SingleRequest(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, false)
-	defer ts.close()
+	defer ts.Close()
 
-	client := socks5.Client{ProxyAddress: ts.srvlistener.Addr().String()}
+	client := client.Client{ProxyAddress: ts.Srvlistener.Addr().String()}
 
-	listener, err := client.Listen(ctx, "tcp", ":0")
+	listener, err := client.Listen(ctx, "tcp", ":10000")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,15 +69,15 @@ func TestClient_Listen_SingleRequest(t *testing.T) {
 	t.Error(err)
 }
 
-func TestClient_Listen_SerialRequests(t *testing.T) {
+func Test_Listen_SerialRequests(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, false)
-	defer ts.close()
+	defer ts.Close()
 
-	client := socks5.Client{ProxyAddress: ts.srvlistener.Addr().String()}
+	client := client.Client{ProxyAddress: ts.Srvlistener.Addr().String()}
 
-	listener, err := client.Listen(ctx, "tcp", ":10000")
+	listener, err := client.Listen(ctx, "tcp", ":0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestClient_Listen_SerialRequests(t *testing.T) {
 	}()
 
 	for i := range 10 {
-		resp, err := http.Get("http://127.0.0.1:10000")
+		resp, err := http.Get("http://" + listener.Addr().String())
 		if err != nil {
 			t.Error(i, err)
 		} else {
@@ -113,13 +113,13 @@ func TestClient_Listen_SerialRequests(t *testing.T) {
 	}
 }
 
-func TestClient_Listen_ParallelRequests(t *testing.T) {
+func Test_Listen_ParallelRequests(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, false)
-	defer ts.close()
+	defer ts.Close()
 
-	client := socks5.Client{ProxyAddress: ts.srvlistener.Addr().String()}
+	client := client.Client{ProxyAddress: ts.Srvlistener.Addr().String()}
 
 	listener, err := client.Listen(ctx, "tcp", ":0")
 	if err != nil {

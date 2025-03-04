@@ -1,10 +1,12 @@
-package socks5
+package server
 
 import (
 	"context"
 	"io"
 	"net"
 	"time"
+
+	"github.com/linkdata/socks5"
 )
 
 func (sess *session) handleCONNECT(ctx context.Context, addr string) (err error) {
@@ -19,10 +21,10 @@ func (sess *session) handleCONNECT(ctx context.Context, addr string) (err error)
 		localAddr := srv.LocalAddr().String()
 		var serverAddr string
 		var serverPort uint16
-		if serverAddr, serverPort, err = SplitHostPort(localAddr); err == nil {
+		if serverAddr, serverPort, err = socks5.SplitHostPort(localAddr); err == nil {
 			res := &Response{
-				Reply: Success,
-				Addr:  AddrFromHostPort(serverAddr, serverPort),
+				Reply: socks5.Success,
+				Addr:  socks5.AddrFromHostPort(serverAddr, serverPort),
 			}
 			var buf []byte
 			if buf, err = res.MarshalBinary(); err == nil {
@@ -30,11 +32,11 @@ func (sess *session) handleCONNECT(ctx context.Context, addr string) (err error)
 					errc := make(chan error, 2)
 					go func() {
 						_, err := io.Copy(sess.conn, srv)
-						errc <- Note(err, "from backend to client")
+						errc <- socks5.Note(err, "from backend to client")
 					}()
 					go func() {
 						_, err := io.Copy(srv, sess.conn)
-						errc <- Note(err, "from client to backend")
+						errc <- socks5.Note(err, "from client to backend")
 					}()
 					return <-errc
 				}
@@ -42,5 +44,5 @@ func (sess *session) handleCONNECT(ctx context.Context, addr string) (err error)
 		}
 	}
 	sess.maybeLogError(err, "CONNECT", "session", sess.conn.RemoteAddr(), "adress", addr)
-	return sess.fail(GeneralFailure, err)
+	return sess.fail(socks5.GeneralFailure, err)
 }

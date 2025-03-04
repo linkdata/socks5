@@ -1,28 +1,27 @@
-package socks5
+package server
 
 import (
-	"errors"
 	"io"
+
+	"github.com/linkdata/socks5"
 )
 
 // Request is the request packet
 type Request struct {
-	Addr Addr
-	Cmd  CommandType
+	Addr socks5.Addr
+	Cmd  socks5.CommandType
 }
-
-var ErrVersion = errors.New("invalid SOCKS version")
 
 // ReadRequest read request packet from client
 func ReadRequest(r io.Reader) (req *Request, err error) {
 	bb := make([]byte, 3)
 	if _, err = io.ReadFull(r, bb); err == nil {
-		if err = MustEqual(bb[0], Socks5Version, ErrVersion); err == nil {
-			var addr Addr
-			if addr, err = ReadAddr(r); err == nil {
+		if err = socks5.MustEqual(bb[0], socks5.Socks5Version, socks5.ErrVersion); err == nil {
+			var addr socks5.Addr
+			if addr, err = socks5.ReadAddr(r); err == nil {
 				req = &Request{
 					Addr: addr,
-					Cmd:  CommandType(bb[1]),
+					Cmd:  socks5.CommandType(bb[1]),
 				}
 			}
 		}

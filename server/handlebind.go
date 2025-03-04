@@ -1,14 +1,16 @@
-package socks5
+package server
 
 import (
 	"context"
 	"io"
 	"net"
+
+	"github.com/linkdata/socks5"
 )
 
-func sendReply(w io.Writer, resp ReplyCode, addr Addr) (err error) {
+func sendReply(w io.Writer, resp socks5.ReplyCode, addr socks5.Addr) (err error) {
 	var b []byte
-	b = append(b, Socks5Version, byte(resp), 0)
+	b = append(b, socks5.Socks5Version, byte(resp), 0)
 	if b, err = addr.AppendBinary(b); err == nil {
 		_, err = w.Write(b)
 	}
@@ -20,17 +22,17 @@ func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error
 	_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "bindaddr", bindaddr)
 	if listener, err = sess.getListener(ctx, bindaddr); err == nil {
 		defer listener.Close()
-		var addr Addr
-		if addr, err = AddrFromString(listener.Addr().String()); err == nil {
-			if err = sendReply(sess.conn, Success, addr); err == nil {
+		var addr socks5.Addr
+		if addr, err = socks5.AddrFromString(listener.Addr().String()); err == nil {
+			if err = sendReply(sess.conn, socks5.Success, addr); err == nil {
 				_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "listen", addr)
 				var conn net.Conn
 				if conn, err = listener.Accept(); err == nil {
 					defer conn.Close()
-					var remoteAddr Addr
-					if remoteAddr, err = AddrFromString(conn.RemoteAddr().String()); err == nil {
+					var remoteAddr socks5.Addr
+					if remoteAddr, err = socks5.AddrFromString(conn.RemoteAddr().String()); err == nil {
 						_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "remote-bound", remoteAddr)
-						if err = sendReply(sess.conn, Success, remoteAddr); err == nil {
+						if err = sendReply(sess.conn, socks5.Success, remoteAddr); err == nil {
 							_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "remote-start", remoteAddr)
 							ctx, cancel := context.WithCancel(ctx)
 							go func() {
@@ -51,6 +53,6 @@ func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error
 		}
 	}
 	sess.maybeLogError(err, "BIND", "session", sess.conn.RemoteAddr(), "adress", bindaddr)
-	_ = sendReply(sess.conn, GeneralFailure, ZeroAddr)
+	_ = sendReply(sess.conn, socks5.GeneralFailure, socks5.ZeroAddr)
 	return
 }

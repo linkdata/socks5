@@ -1,4 +1,4 @@
-package socks5_test
+package server_test
 
 import (
 	"bytes"
@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/linkdata/socks5"
+	"github.com/linkdata/socks5/server"
 )
 
 func init() {
-	socks5.UDPTimeout = time.Millisecond * 10
+	server.UDPTimeout = time.Millisecond * 10
 }
 
 func udpEchoServer(conn net.PacketConn) {
@@ -36,11 +37,11 @@ func udpEchoServer(conn net.PacketConn) {
 	slog.Info("udpEchoServer: stop", "conn", conn.LocalAddr().String(), "error", err)
 }
 
-func TestClient_UDP_Single(t *testing.T) {
+func Test_UDP_Single(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, false)
-	defer ts.close()
+	defer ts.Close()
 
 	packet, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
@@ -50,7 +51,7 @@ func TestClient_UDP_Single(t *testing.T) {
 
 	go udpEchoServer(packet)
 
-	conn, err := ts.client.Dial("udp", packet.LocalAddr().String())
+	conn, err := ts.Client.Dial("udp", packet.LocalAddr().String())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,11 +81,11 @@ func TestClient_UDP_Single(t *testing.T) {
 	}
 }
 
-func TestClient_UDP_Multiple(t *testing.T) {
+func Test_UDP_Multiple(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, false)
-	defer ts.close()
+	defer ts.Close()
 
 	// backend UDP server which we'll use SOCKS5 to connect to
 	newUDPEchoServer := func() net.PacketConn {
@@ -107,7 +108,7 @@ func TestClient_UDP_Multiple(t *testing.T) {
 		}
 	}()
 
-	conn, err := ts.client.DialContext(ctx, "udp", "0.0.0.0:0")
+	conn, err := ts.Client.DialContext(ctx, "udp", "0.0.0.0:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +143,7 @@ func TestClient_UDP_Multiple(t *testing.T) {
 		}
 	}
 
-	time.Sleep(socks5.UDPTimeout * 2)
+	time.Sleep(server.UDPTimeout * 2)
 
 	echoServer := echoServerListener[echoServerNumber-1]
 	echoAddress := echoServer.LocalAddr()
@@ -166,16 +167,16 @@ func TestClient_UDP_Multiple(t *testing.T) {
 		t.Errorf("%v got %d: %q want: %q", echoAddress, len(responseBody), responseBody, requestBody)
 	}
 	conn.Close()
-	time.Sleep(socks5.UDPTimeout)
+	time.Sleep(server.UDPTimeout)
 }
 
-func TestClient_UDP_InvalidPacket(t *testing.T) {
+func Test_UDP_InvalidPacket(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	ts := newTestServer(ctx, t, false)
-	defer ts.close()
+	defer ts.Close()
 
-	conn, err := ts.client.Dial("udp", "127.0.0.1:10000")
+	conn, err := ts.Client.Dial("udp", "127.0.0.1:10000")
 	if err != nil {
 		t.Fatal(err)
 	}
