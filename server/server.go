@@ -40,29 +40,31 @@ func (s *Server) DialContext(ctx context.Context, network, addr string) (net.Con
 	return dialer.DialContext(ctx, network, addr)
 }
 
-func listenKey(address string) (key string) {
+func listenKey(client net.Conn, address string) (key string) {
 	if host, port, err := net.SplitHostPort(address); err == nil {
 		if port != "0" {
 			if host == "0.0.0.0" || host == "::" {
 				host = ""
 			}
-			key = net.JoinHostPort(host, port)
+			if clienthost, _, err := net.SplitHostPort(client.RemoteAddr().String()); err == nil {
+				key = net.JoinHostPort(host, port) + "@" + clienthost
+			}
 		}
 	}
 	return
 }
 
-func (s *Server) getListener(ctx context.Context, address string) (nl net.Listener, err error) {
+func (s *Server) getListener(ctx context.Context, client net.Conn, bindaddress string) (nl net.Listener, err error) {
 	err = net.ErrClosed
 	if !s.closed.Load() {
 		err = nil
-		key := listenKey(address)
+		key := listenKey(client, bindaddress)
 		var lc net.ListenConfig
 		var newlistener net.Listener
 		if key == "" {
-			if newlistener, err = lc.Listen(ctx, "tcp", address); err == nil {
-				address = newlistener.Addr().String()
-				key = listenKey(address)
+			if newlistener, err = lc.Listen(ctx, "tcp", bindaddress); err == nil {
+				bindaddress = newlistener.Addr().String()
+				key = listenKey(client, bindaddress)
 			}
 		}
 		if err == nil {
@@ -74,7 +76,7 @@ func (s *Server) getListener(ctx context.Context, address string) (nl net.Listen
 			l := s.listeners[key]
 			if l == nil {
 				if newlistener == nil {
-					newlistener, err = lc.Listen(ctx, "tcp", address)
+					newlistener, err = lc.Listen(ctx, "tcp", bindaddress)
 				}
 				if err == nil {
 					l = &listener{

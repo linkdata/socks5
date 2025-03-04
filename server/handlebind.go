@@ -20,7 +20,7 @@ func sendReply(w io.Writer, resp socks5.ReplyCode, addr socks5.Addr) (err error)
 func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error) {
 	var listener net.Listener
 	_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "bindaddr", bindaddr)
-	if listener, err = sess.getListener(ctx, bindaddr); err == nil {
+	if listener, err = sess.getListener(ctx, sess.conn, bindaddr); err == nil {
 		defer listener.Close()
 		var addr socks5.Addr
 		if addr, err = socks5.AddrFromString(listener.Addr().String()); err == nil {
