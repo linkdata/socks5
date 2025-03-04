@@ -11,11 +11,10 @@ import (
 	"time"
 
 	"github.com/linkdata/socks5"
-	"github.com/linkdata/socks5/server"
 )
 
 func init() {
-	server.UDPTimeout = time.Millisecond * 10
+	socks5.UDPTimeout = time.Millisecond * 10
 }
 
 func udpEchoServer(conn net.PacketConn) {
@@ -143,7 +142,7 @@ func Test_UDP_Multiple(t *testing.T) {
 		}
 	}
 
-	time.Sleep(server.UDPTimeout * 2)
+	time.Sleep(socks5.UDPTimeout * 2)
 
 	echoServer := echoServerListener[echoServerNumber-1]
 	echoAddress := echoServer.LocalAddr()
@@ -167,7 +166,7 @@ func Test_UDP_Multiple(t *testing.T) {
 		t.Errorf("%v got %d: %q want: %q", echoAddress, len(responseBody), responseBody, requestBody)
 	}
 	conn.Close()
-	time.Sleep(server.UDPTimeout)
+	time.Sleep(socks5.UDPTimeout)
 }
 
 func Test_UDP_InvalidPacket(t *testing.T) {

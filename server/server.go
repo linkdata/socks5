@@ -32,17 +32,10 @@ type Server struct {
 	listeners map[string]*listener
 }
 
-var (
-	DefaultDialer   socks5.ContextDialer = &net.Dialer{}
-	LogPrefix                            = "socks5: "
-	UDPTimeout                           = time.Second * 10
-	ListenerTimeout                      = time.Second * 1
-)
-
 func (s *Server) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	dialer := s.Dialer
 	if dialer == nil {
-		dialer = DefaultDialer
+		dialer = socks5.DefaultDialer
 	}
 	return dialer.DialContext(ctx, network, addr)
 }
@@ -104,27 +97,27 @@ func (s *Server) getListener(ctx context.Context, client net.Conn, bindaddress s
 
 func (s *Server) LogDebug(msg string, keyvaluepairs ...any) bool {
 	if s.Debug && s.Logger != nil {
-		s.Logger.Info(LogPrefix+msg, keyvaluepairs...)
+		s.Logger.Info(socks5.LogPrefix+msg, keyvaluepairs...)
 	}
 	return true
 }
 
 func (s *Server) LogInfo(msg string, keyvaluepairs ...any) {
 	if s.Logger != nil {
-		s.Logger.Info(LogPrefix+msg, keyvaluepairs...)
+		s.Logger.Info(socks5.LogPrefix+msg, keyvaluepairs...)
 	}
 }
 
 func (s *Server) LogError(msg string, keyvaluepairs ...any) {
 	if s.Logger != nil {
-		s.Logger.Error(LogPrefix+msg, keyvaluepairs...)
+		s.Logger.Error(socks5.LogPrefix+msg, keyvaluepairs...)
 	}
 }
 
 func (s *Server) maybeLogError(err error, msg string, keyvaluepairs ...any) {
 	if err != nil && s.Logger != nil {
 		keyvaluepairs = append(keyvaluepairs, "error", err)
-		s.Logger.Error(LogPrefix+msg, keyvaluepairs...)
+		s.Logger.Error(socks5.LogPrefix+msg, keyvaluepairs...)
 	}
 }
 
@@ -161,7 +154,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) (err error) {
 func (s *Server) listenerCleanup() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	deadline := int64(time.Since(s.Started) - ListenerTimeout)
+	deadline := int64(time.Since(s.Started) - socks5.ListenerTimeout)
 	for k, l := range s.listeners {
 		if refs := l.refs.Load(); refs < 1 {
 			if died := l.died.Load(); died < deadline {
@@ -174,7 +167,7 @@ func (s *Server) listenerCleanup() {
 }
 
 func (s *Server) listenerMaintenance(ctx context.Context) {
-	tmr := time.NewTicker(ListenerTimeout)
+	tmr := time.NewTicker(socks5.ListenerTimeout)
 	defer tmr.Stop()
 	for {
 		select {

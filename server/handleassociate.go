@@ -64,7 +64,7 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 	var buf [maxUdpPacket]byte
 
 	started := time.Now()
-	err = clientUDPConn.SetReadDeadline(started.Add(UDPTimeout / 10))
+	err = clientUDPConn.SetReadDeadline(started.Add(socks5.UDPTimeout / 10))
 
 	for err == nil {
 		var n int
@@ -105,14 +105,14 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 				}
 			}
 		} else if isTimeout(err) {
-			timeout := int64((time.Since(started) - UDPTimeout))
+			timeout := int64((time.Since(started) - socks5.UDPTimeout))
 			for _, svc := range udpServicers {
 				if when := svc.when.Load(); when < timeout {
 					_ = svc.target.Close()
 					delete(udpServicers, svc.targetaddr)
 				}
 			}
-			err = clientUDPConn.SetReadDeadline(time.Now().Add(UDPTimeout / 10))
+			err = clientUDPConn.SetReadDeadline(time.Now().Add(socks5.UDPTimeout / 10))
 		}
 	}
 

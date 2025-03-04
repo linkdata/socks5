@@ -1,5 +1,10 @@
 package socks5
 
+import (
+	"net"
+	"time"
+)
+
 type AuthMethod byte
 
 // Authentication METHODs described in RFC 1928, section 3.
@@ -25,4 +30,11 @@ const (
 	ConnectCommand   CommandType = 1
 	BindCommand      CommandType = 2
 	AssociateCommand CommandType = 3
+)
+
+var (
+	DefaultDialer   ContextDialer = &net.Dialer{}
+	LogPrefix                     = "socks5: "
+	UDPTimeout                    = time.Second * 10
+	ListenerTimeout               = time.Second * 1
 )
