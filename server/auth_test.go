@@ -2,126 +2,45 @@ package server_test
 
 import (
 	"context"
-	"errors"
-	"net/http"
-	"net/http/httptest"
-	"strings"
+	"log/slog"
+	"net"
 	"testing"
-	"time"
 
-	"github.com/linkdata/socks5"
+	"github.com/linkdata/socks5/client"
+	"github.com/linkdata/socks5/server"
+	"github.com/linkdata/socks5test"
 )
 
-func Test_Auth_None(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	ts := newTestServer(ctx, t, false)
-	defer ts.Close()
-
-	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("ok"))
-	}))
-	defer httpsrv.Close()
-
-	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
-	resp, err := httpcli.Get(httpsrv.URL)
-	if err != nil {
-		t.Fatal(err)
+var srvfn = func(ctx context.Context, l net.Listener, username, password string) {
+	srv := &server.Server{
+		Username: username,
+		Password: password,
+		Logger:   slog.Default(),
+		Debug:    true,
 	}
-	resp.Body.Close()
+	srv.Serve(ctx, l)
 }
 
-func Test_Auth_NoAcceptable(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	ts := newTestServer(ctx, t, true)
-	defer ts.Close()
-
-	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("ok"))
-	}))
-	defer httpsrv.Close()
-
-	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
-	resp, err := httpcli.Get(httpsrv.URL)
-	if resp != nil {
-		resp.Body.Close()
-	}
-	if !errors.Is(err, socks5.ErrNoAcceptableAuthMethods) {
-		t.Error(err)
-	}
+var clifn = func(urlstr string) (cd socks5test.ContextDialer, err error) {
+	return client.New(urlstr)
 }
 
-func Test_Auth_Password(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	ts := newTestServer(ctx, t, true)
-	defer ts.Close()
-
-	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("ok"))
-	}))
-	defer httpsrv.Close()
-
-	ts.Client.ProxyUsername = "u"
-	ts.Client.ProxyPassword = "p"
-
-	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
-	resp, err := httpcli.Get(httpsrv.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
+func TestAuth_None(t *testing.T) {
+	socks5test.Auth_None(t, srvfn, clifn)
 }
 
-func Test_Auth_InvalidPassword(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	ts := newTestServer(ctx, t, true)
-	defer ts.Close()
-
-	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("ok"))
-	}))
-	defer httpsrv.Close()
-
-	ts.Client.ProxyUsername = "u"
-	ts.Client.ProxyPassword = strings.Repeat("x", 256)
-
-	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
-	resp, err := httpcli.Get(httpsrv.URL)
-	if resp != nil {
-		resp.Body.Close()
-	}
-	if !errors.Is(err, socks5.ErrIllegalPassword) {
-		t.Error(err)
-	}
+func TestAuth_NoAcceptable(t *testing.T) {
+	socks5test.Auth_NoAcceptable(t, srvfn, clifn)
 }
 
-func Test_Auth_WrongPassword(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	ts := newTestServer(ctx, t, true)
-	defer ts.Close()
+func TestAuth_Password(t *testing.T) {
+	socks5test.Auth_Password(t, srvfn, clifn)
+}
 
-	httpsrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("ok"))
-	}))
-	defer httpsrv.Close()
+func TestAuth_InvalidPassword(t *testing.T) {
+	socks5test.Auth_InvalidPassword(t, srvfn, clifn)
+}
 
-	ts.Client.ProxyUsername = "u"
-	ts.Client.ProxyPassword = "x"
-	httpcli := httpsrv.Client()
-	httpcli.Transport = &http.Transport{DialContext: ts.Client.DialContext}
-	resp, err := httpcli.Get(httpsrv.URL)
-	if resp != nil {
-		resp.Body.Close()
-	}
-	if !errors.Is(err, socks5.ErrAuthFailed) {
-		t.Error(err)
-	}
+func TestAuth_WrongPassword(t *testing.T) {
+	socks5test.Auth_WrongPassword(t, srvfn, clifn)
 }

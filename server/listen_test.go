@@ -1,177 +1,25 @@
 package server_test
 
 import (
-	"context"
-	"math/rand/v2"
-	"net/http"
-	"strconv"
-	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/linkdata/socks5"
-	"github.com/linkdata/socks5/client"
+	"github.com/linkdata/socks5test"
 )
 
 func init() {
 	socks5.ListenerTimeout = time.Millisecond * 10
 }
 
-func Test_Listen_SingleRequest(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-	defer cancel()
-	ts := newTestServer(ctx, t, false)
-	defer ts.Close()
-
-	client := client.Client{ProxyAddress: ts.Srvlistener.Addr().String()}
-
-	listenPort := ":" + strconv.Itoa(10000+rand.IntN(1000))
-	listener, err := client.Listen(ctx, "tcp", listenPort)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer listener.Close()
-
-	listenAddr := listener.Addr()
-	if listenAddr == nil {
-		t.Fatal("listener.Addr() returned nil")
-	}
-	t.Log("listenAddr", listenAddr.String())
-
-	errCh := make(chan error)
-	go func() {
-		defer close(errCh)
-		errCh <- http.Serve(listener, nil)
-	}()
-
-	resp, err := http.Get("http://" + listenAddr.String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp.Body.Close()
-
-	err = listener.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	select {
-	case <-time.NewTimer(time.Second).C:
-		t.Error("http.Serve did not stop")
-	case err = <-errCh:
-		if err != nil {
-			t.Log(err)
-		}
-	}
-
-	// wait until we get "connection refused"
-	for range 10 {
-		resp, err = http.Get("http://" + listenAddr.String())
-		if err == nil {
-			resp.Body.Close()
-		} else {
-			if strings.Contains(err.Error(), "connection refused") {
-				if err = ctx.Err(); err != nil {
-					t.Error(err)
-				}
-				return
-			}
-		}
-	}
-	t.Error(err)
+func TestListen_SingleRequest(t *testing.T) {
+	socks5test.Listen_SingleRequest(t, srvfn, clifn)
 }
 
-func Test_Listen_SerialRequests(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	ts := newTestServer(ctx, t, false)
-	defer ts.Close()
-
-	client := client.Client{ProxyAddress: ts.Srvlistener.Addr().String()}
-
-	listener, err := client.Listen(ctx, "tcp", ":0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer listener.Close()
-
-	errCh := make(chan error)
-	go func() {
-		defer close(errCh)
-		errCh <- http.Serve(listener, nil)
-	}()
-
-	for i := range 10 {
-		resp, err := http.Get("http://" + listener.Addr().String())
-		if err != nil {
-			t.Error(i, err)
-		} else {
-			resp.Body.Close()
-		}
-	}
-
-	err = listener.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	select {
-	case <-time.NewTimer(time.Second).C:
-		t.Error("http.Serve did not stop")
-	case err = <-errCh:
-		if err != nil {
-			t.Log(err)
-		}
-	}
+func TestListen_SerialRequests(t *testing.T) {
+	socks5test.Listen_SerialRequests(t, srvfn, clifn)
 }
 
-func Test_Listen_ParallelRequests(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	ts := newTestServer(ctx, t, false)
-	defer ts.Close()
-
-	client := client.Client{ProxyAddress: ts.Srvlistener.Addr().String()}
-
-	listener, err := client.Listen(ctx, "tcp", ":0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer listener.Close()
-
-	errCh := make(chan error)
-	go func() {
-		defer close(errCh)
-		errCh <- http.Serve(listener, nil)
-	}()
-
-	var wg sync.WaitGroup
-	for i := range 10 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			resp, err := http.Get("http://" + listener.Addr().String())
-			if err != nil {
-				t.Error(i, err)
-			} else {
-				resp.Body.Close()
-			}
-		}()
-	}
-	wg.Wait()
-
-	err = listener.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	select {
-	case <-time.NewTimer(time.Second).C:
-		t.Error("http.Serve did not stop")
-	case err = <-errCh:
-		if err != nil {
-			t.Log(err)
-		}
-	}
+func TestListen_ParallelRequests(t *testing.T) {
+	socks5test.Listen_ParallelRequests(t, srvfn, clifn)
 }
