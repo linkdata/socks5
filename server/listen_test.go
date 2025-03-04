@@ -2,7 +2,9 @@ package server_test
 
 import (
 	"context"
+	"math/rand/v2"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -19,7 +21,9 @@ func Test_Listen_SingleRequest(t *testing.T) {
 
 	client := client.Client{ProxyAddress: ts.Srvlistener.Addr().String()}
 
-	listener, err := client.Listen(ctx, "tcp", ":10000")
+	listenPort := ":" + strconv.Itoa(10000+rand.IntN(1000))
+	listener, err := client.Listen(ctx, "tcp", listenPort)
+
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,6 +33,7 @@ func Test_Listen_SingleRequest(t *testing.T) {
 	if listenAddr == nil {
 		t.Fatal("listener.Addr() returned nil")
 	}
+	t.Log("listenAddr", listenAddr.String())
 
 	errCh := make(chan error)
 	go func() {
