@@ -20,12 +20,11 @@ type Server struct {
 	Authenticators []Authenticator
 
 	// DialerSelector is called to get the ContextDialer to use for an outgoing connection.
-	// If nil, the DefaultDialer will be used, which if not changed is a net.Dialer.
+	// If nil, socks5.DefaultDialer will be used, which if not changed is a net.Dialer.
 	DialerSelector
 
-	// If not nil, use this Logger (compatible with log/slog)
-	Logger socks5.Logger
-	Debug  bool // if true, output debug logging using Logger.Info
+	Logger socks5.Logger // If not nil, use this Logger (compatible with log/slog)
+	Debug  bool          // If true, output debug logging using Logger.Info
 
 	closed    atomic.Bool
 	mu        sync.Mutex // protects following
