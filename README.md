@@ -11,5 +11,18 @@ SOCKS5 client and server. Full test coverage provided by https://github.com/link
 - [x] Support for the ASSOCIATE command
 - [x] Uses ContextDialer's for easy interoperation with other packages
 
-Notably, the client support for `net.Listener` includes reporting the bound address and port before calling `Accept()` and
+
+## Client
+
+The client support for `net.Listener` includes reporting the bound address and port before calling `Accept()` and
 supports multiple concurrent `Accept()` calls, allowing you to reverse-proxy a server using this package.
+
+## Server
+
+The server provides two abstractions to customize it's behavior.
+
+The `Authenticator` interface allows custom authentication methods, and comes with implementations for
+anonymous usage (`NoAuthAuthenticator`) or username/password authentication (`UserPassAuthenticator`).
+
+The `DialerSelector` interface allows selecting the `ContextDialer` to use for each outgoing connection
+based on authentication method, username, network and address. The default uses `socks5.DefaultDialer`.
