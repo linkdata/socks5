@@ -19,9 +19,9 @@ type Server struct {
 	// Order matters; they are tried in the given order.
 	Authenticators []Authenticator
 
-	// Dialer optionally specifies the ContextDialer to use for outgoing connections.
-	// If nil, DefaultDialer will be used, which if not changed is a net.Dialer.
-	Dialer socks5.ContextDialer
+	// DialerSelector is called to get the ContextDialer to use for an outgoing connection.
+	// If nil, the DefaultDialer will be used, which if not changed is a net.Dialer.
+	DialerSelector
 
 	// If not nil, use this Logger (compatible with log/slog)
 	Logger socks5.Logger
@@ -30,14 +30,6 @@ type Server struct {
 	closed    atomic.Bool
 	mu        sync.Mutex // protects following
 	listeners map[string]*listener
-}
-
-func (s *Server) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
-	dialer := s.Dialer
-	if dialer == nil {
-		dialer = socks5.DefaultDialer
-	}
-	return dialer.DialContext(ctx, network, addr)
 }
 
 func listenKey(client net.Conn, address string) (key string) {

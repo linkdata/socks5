@@ -16,7 +16,7 @@ func (sess *session) handleCONNECT(ctx context.Context, addr string) (err error)
 	defer cancel()
 
 	var srv net.Conn
-	if srv, err = sess.Server.DialContext(ctx, "tcp", addr); err == nil {
+	if srv, err = sess.DialContext(ctx, "tcp", addr); err == nil {
 		defer srv.Close()
 		localAddr := srv.LocalAddr().String()
 		var serverAddr string

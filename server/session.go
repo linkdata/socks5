@@ -14,6 +14,20 @@ type session struct {
 	authMethod socks5.AuthMethod // authentication method
 }
 
+func (sess *session) DialContext(ctx context.Context, network, addr string) (conn net.Conn, err error) {
+	var dialer socks5.ContextDialer
+	if sess.Server.DialerSelector != nil {
+		dialer, err = sess.Server.DialerSelector.SelectDialer(sess.authMethod, sess.username, network, addr)
+	}
+	if err == nil {
+		if dialer == nil {
+			dialer = socks5.DefaultDialer
+		}
+		conn, err = dialer.DialContext(ctx, network, addr)
+	}
+	return
+}
+
 func (sess *session) serve(ctx context.Context) (err error) {
 	if sess.authMethod, sess.username, err = sess.authenticate(); err == nil {
 		err = sess.handleRequest(ctx)

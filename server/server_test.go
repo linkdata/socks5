@@ -9,10 +9,17 @@ import (
 	"net"
 	"testing"
 
+	"github.com/linkdata/socks5"
 	"github.com/linkdata/socks5/client"
 	"github.com/linkdata/socks5/server"
 	"github.com/linkdata/socks5test"
 )
+
+type dialerselector struct{}
+
+func (dialerselector) SelectDialer(am socks5.AuthMethod, username, network, address string) (cd socks5.ContextDialer, err error) {
+	return
+}
 
 var srvfn = func(ctx context.Context, l net.Listener, username, password string) {
 	var authenticators []server.Authenticator
@@ -26,6 +33,7 @@ var srvfn = func(ctx context.Context, l net.Listener, username, password string)
 	}
 	srv := &server.Server{
 		Authenticators: authenticators,
+		DialerSelector: dialerselector{},
 		Logger:         slog.Default(),
 		Debug:          true,
 	}
@@ -50,4 +58,8 @@ func TestServer_Logging(t *testing.T) {
 	proxy.LogDebug("debug")
 	proxy.LogInfo("info")
 	proxy.LogError("error")
+}
+
+func TestServer_DialerSelector(t *testing.T) {
+	socks5test.InvalidCommand(t, srvfn, clifn)
 }

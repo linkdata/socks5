@@ -43,7 +43,7 @@ func (sess *session) handleASSOCIATE(ctx context.Context) (err error) {
 	return sess.fail(socks5.GeneralFailure, err)
 }
 
-func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUDPConn net.PacketConn) (err error) {
+func (sess *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUDPConn net.PacketConn) (err error) {
 	var tcpClosed atomic.Bool
 	go func() {
 		_, _ = io.Copy(io.Discard, clientTCPConn)
@@ -81,9 +81,9 @@ func (c *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUD
 					var svc *udpService
 					if svc = udpServicers[pkt.Addr]; svc == nil {
 						var targetConn net.Conn
-						if targetConn, err = c.Server.DialContext(ctx, "udp", pkt.Addr.String()); err == nil {
+						if targetConn, err = sess.DialContext(ctx, "udp", pkt.Addr.String()); err == nil {
 							svc = &udpService{
-								srv:        c.Server,
+								srv:        sess.Server,
 								started:    started,
 								client:     clientUDPConn,
 								clientaddr: clientNetAddr,
