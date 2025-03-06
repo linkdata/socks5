@@ -140,21 +140,24 @@ type udpService struct {
 
 func (svc *udpService) serve() {
 	defer svc.target.Close()
-	var buf [maxUdpPacket]byte
-	var err error
-	pktconn := svc.target.(net.PacketConn)
-	for err == nil {
-		var n int
-		var srcnetaddr net.Addr
-		if n, srcnetaddr, err = pktconn.ReadFrom(buf[:]); err == nil {
-			var srcaddr socks5.Addr
-			if srcaddr, err = socks5.AddrFromString(srcnetaddr.String()); err == nil {
-				var b []byte
-				if b, err = (&socks5.UDPPacket{Addr: srcaddr, Body: buf[:n]}).MarshalBinary(); err == nil {
-					var nn int
-					if nn, err = svc.client.WriteTo(b, svc.clientaddr); err == nil {
-						if err = socks5.MustEqual(nn, len(b), io.ErrShortWrite); err == nil {
-							svc.when.Store(int64(time.Since(svc.started)))
+	err := socks5.ErrUnsupportedNetwork
+	pktconn, ok := svc.target.(net.PacketConn)
+	if ok {
+		var buf [maxUdpPacket]byte
+		err = nil
+		for err == nil {
+			var n int
+			var srcnetaddr net.Addr
+			if n, srcnetaddr, err = pktconn.ReadFrom(buf[:]); err == nil {
+				var srcaddr socks5.Addr
+				if srcaddr, err = socks5.AddrFromString(srcnetaddr.String()); err == nil {
+					var b []byte
+					if b, err = (&socks5.UDPPacket{Addr: srcaddr, Body: buf[:n]}).MarshalBinary(); err == nil {
+						var nn int
+						if nn, err = svc.client.WriteTo(b, svc.clientaddr); err == nil {
+							if err = socks5.MustEqual(nn, len(b), io.ErrShortWrite); err == nil {
+								svc.when.Store(int64(time.Since(svc.started)))
+							}
 						}
 					}
 				}
