@@ -4,7 +4,7 @@
 [![Docs](https://godoc.org/github.com/linkdata/socks5?status.svg)](https://godoc.org/github.com/linkdata/socks5)
 
 # socks5
-SOCKS5 client and server
+SOCKS5 client and server. Full test coverage provided by https://github.com/linkdata/socks5test.
 
 - [x] Support for the CONNECT command
 - [x] Support for the BIND command
