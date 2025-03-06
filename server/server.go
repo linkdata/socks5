@@ -15,13 +15,13 @@ import (
 type Server struct {
 	Started time.Time // time when Server.Serve() was called
 
+	// List of authentication providers. If nil, uses NoAuthAuthenticator.
+	// Order matters; they are tried in the given order.
+	Authenticators []Authenticator
+
 	// Dialer optionally specifies the ContextDialer to use for outgoing connections.
 	// If nil, DefaultDialer will be used, which if not changed is a net.Dialer.
 	Dialer socks5.ContextDialer
-
-	// Username and Password, if set, are the credential clients must provide.
-	Username string
-	Password string
 
 	// If not nil, use this Logger (compatible with log/slog)
 	Logger socks5.Logger
@@ -208,28 +208,6 @@ func readClientGreeting(r io.Reader) (authMethods []socks5.AuthMethod, err error
 			if _, err = io.ReadFull(r, methods); err == nil {
 				for _, m := range methods {
 					authMethods = append(authMethods, socks5.AuthMethod(m))
-				}
-			}
-		}
-	}
-	return
-}
-
-func parseClientAuth(r io.Reader) (usr, pwd string, err error) {
-	var hdr [2]byte
-	if _, err = io.ReadFull(r, hdr[:]); err == nil {
-		if err = socks5.MustEqual(hdr[0], socks5.PasswordAuthVersion, socks5.ErrBadSOCKSAuthVersion); err == nil {
-			usrLen := int(hdr[1])
-			usrBytes := make([]byte, usrLen)
-			if _, err = io.ReadFull(r, usrBytes); err == nil {
-				var hdrPwd [1]byte
-				if _, err = io.ReadFull(r, hdrPwd[:]); err == nil {
-					pwdLen := int(hdrPwd[0])
-					pwdBytes := make([]byte, pwdLen)
-					if _, err = io.ReadFull(r, pwdBytes); err == nil {
-						usr = string(usrBytes)
-						pwd = string(pwdBytes)
-					}
 				}
 			}
 		}

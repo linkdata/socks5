@@ -14,6 +14,11 @@ const (
 	NoAcceptableAuth AuthMethod = 255
 )
 
+const (
+	AuthSuccess = 0
+	AuthFailure = 1
+)
+
 // PasswordAuthVersion is the auth version byte described in RFC 1929.
 const PasswordAuthVersion = 1
 

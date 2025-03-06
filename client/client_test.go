@@ -2,6 +2,7 @@ package client_test
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"testing"
 
@@ -12,9 +13,19 @@ import (
 )
 
 var srvfn = func(ctx context.Context, l net.Listener, username, password string) {
+	var authenticators []server.Authenticator
+	if username != "" {
+		authenticators = append(authenticators,
+			server.UserPassAuthenticator{
+				Credentials: server.StaticCredentials{
+					username: password,
+				},
+			})
+	}
 	srv := &server.Server{
-		Username: username,
-		Password: password,
+		Authenticators: authenticators,
+		Logger:         slog.Default(),
+		Debug:          true,
 	}
 	srv.Serve(ctx, l)
 }

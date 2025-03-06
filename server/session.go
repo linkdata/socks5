@@ -8,54 +8,35 @@ import (
 )
 
 type session struct {
-	*Server          // server we belong to
-	conn    net.Conn // client session connection
+	*Server                      // server we belong to
+	conn       net.Conn          // client session connection
+	username   string            // username, if available
+	authMethod socks5.AuthMethod // authentication method
 }
 
 func (sess *session) serve(ctx context.Context) (err error) {
-	var authMethod socks5.AuthMethod
-	if authMethod, err = sess.negotiateAuth(); err == nil {
-		if err = sess.verifyAuth(authMethod); err == nil {
-			err = sess.handleRequest(ctx)
-		}
+	if sess.authMethod, sess.username, err = sess.authenticate(); err == nil {
+		err = sess.handleRequest(ctx)
 	}
 	return
 }
 
-func (sess *session) verifyAuth(authMethod socks5.AuthMethod) (err error) {
-	if authMethod == socks5.PasswordAuth {
-		var user, pwd string
-		if user, pwd, err = parseClientAuth(sess.conn); err == nil {
-			if user == sess.Server.Username && pwd == sess.Server.Password {
-				_, err = sess.conn.Write([]byte{1, byte(socks5.Success)}) // auth success
-				return
+func (sess *session) authenticate() (authMethod socks5.AuthMethod, username string, err error) {
+	var clientAuthMethods []socks5.AuthMethod
+	if clientAuthMethods, err = readClientGreeting(sess.conn); err == nil {
+		err = socks5.ErrNoAcceptableAuthMethods
+		authenticators := sess.Authenticators
+		if authenticators == nil {
+			authenticators = []Authenticator{NoAuthAuthenticator{}}
+		}
+		for _, auther := range authenticators {
+			for _, clientAuth := range clientAuthMethods {
+				if clientAuth == auther.Method() {
+					authMethod = clientAuth
+					username, err = auther.Authenticate(sess.conn, sess.conn, sess.conn.RemoteAddr().String())
+					return
+				}
 			}
-			err = socks5.ErrAuthFailed
-		}
-		_, _ = sess.conn.Write([]byte{1, byte(socks5.GeneralFailure)}) // auth error
-	}
-	return
-}
-
-func requireAuthMethod(authMethod socks5.AuthMethod, authMethods []socks5.AuthMethod) (err error) {
-	for _, m := range authMethods {
-		if m == authMethod {
-			return nil
-		}
-	}
-	return socks5.ErrNoAcceptableAuthMethods
-}
-
-func (sess *session) negotiateAuth() (authMethod socks5.AuthMethod, err error) {
-	authMethod = socks5.NoAuthRequired
-	if sess.Server.Username != "" || sess.Server.Password != "" {
-		authMethod = socks5.PasswordAuth
-	}
-	var authMethods []socks5.AuthMethod
-	if authMethods, err = readClientGreeting(sess.conn); err == nil {
-		if err = requireAuthMethod(authMethod, authMethods); err == nil {
-			_, err = sess.conn.Write([]byte{socks5.Socks5Version, byte(authMethod)})
-			return
 		}
 	}
 	_, _ = sess.conn.Write([]byte{socks5.Socks5Version, byte(socks5.NoAcceptableAuth)})

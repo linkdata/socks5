@@ -17,3 +17,17 @@ var (
 	ErrNoAcceptableAuthMethods = errors.New("no acceptable auth methods")
 	ErrUnsupportedScheme       = errors.New("unsupported scheme")
 )
+
+func JoinErrs(errs ...error) (err error) {
+	n := 0
+	for _, e := range errs {
+		if e != nil {
+			err = e
+			n++
+		}
+	}
+	if n > 1 {
+		err = errors.Join(errs...)
+	}
+	return
+}
