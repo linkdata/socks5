@@ -47,7 +47,7 @@ func (a UserPassAuthenticator) Socks5Authenticate(r io.Reader, w io.Writer, am s
 							if _, err = io.ReadFull(r, pwdBytes); err == nil {
 								usr := string(usrBytes)
 								err = socks5.ErrAuthFailed
-								if a.Credentials.Valid(usr, string(pwdBytes), userAddr) {
+								if a.Credentials.Socks5ValidateCredentials(usr, string(pwdBytes), userAddr) {
 									err = nil
 									resultcode = socks5.AuthSuccess
 									username = usr

@@ -17,7 +17,7 @@ import (
 
 type dialerselector struct{}
 
-func (dialerselector) SelectDialer(am socks5.AuthMethod, username, network, address string) (cd socks5.ContextDialer, err error) {
+func (dialerselector) Socks5SelectDialer(am socks5.AuthMethod, username, network, address string) (cd socks5.ContextDialer, err error) {
 	return
 }
 

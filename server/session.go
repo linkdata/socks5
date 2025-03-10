@@ -17,7 +17,7 @@ type session struct {
 func (sess *session) DialContext(ctx context.Context, network, addr string) (conn net.Conn, err error) {
 	var dialer socks5.ContextDialer
 	if sess.Server.DialerSelector != nil {
-		dialer, err = sess.Server.DialerSelector.SelectDialer(sess.authMethod, sess.username, network, addr)
+		dialer, err = sess.Server.DialerSelector.Socks5SelectDialer(sess.authMethod, sess.username, network, addr)
 	}
 	if err == nil {
 		if dialer == nil {
