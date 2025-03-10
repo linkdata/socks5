@@ -45,9 +45,10 @@ func (sess *session) authenticate() (authMethod socks5.AuthMethod, username stri
 		}
 		for _, auther := range authenticators {
 			for _, clientAuth := range clientAuthMethods {
-				if clientAuth == auther.Method() {
+				if s, e := auther.Socks5Authenticate(sess.conn, sess.conn, clientAuth, sess.conn.RemoteAddr().String()); e != socks5.ErrAuthMethodNotSupported {
 					authMethod = clientAuth
-					username, err = auther.Authenticate(sess.conn, sess.conn, sess.conn.RemoteAddr().String())
+					username = s
+					err = e
 					return
 				}
 			}
