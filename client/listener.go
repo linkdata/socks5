@@ -23,7 +23,7 @@ var _ net.Listener = &listener{}
 func (cli *Client) bindTCP(ctx context.Context, address string) (bnd *listener, err error) {
 	var conn net.Conn
 	var addr socks5.Addr
-	if conn, addr, err = cli.do(ctx, socks5.BindCommand, address); err == nil {
+	if conn, addr, err = cli.do(ctx, socks5.CommandBind, address); err == nil {
 		bnd = &listener{
 			cli:   cli,
 			ctx:   ctx,
@@ -37,7 +37,7 @@ func (cli *Client) bindTCP(ctx context.Context, address string) (bnd *listener, 
 }
 
 func (l *listener) startAccept() (conn net.Conn, addr socks5.Addr, err error) {
-	conn, addr, err = l.cli.do(l.ctx, socks5.BindCommand, l.addr.String())
+	conn, addr, err = l.cli.do(l.ctx, socks5.CommandBind, l.addr.String())
 	return
 }
 

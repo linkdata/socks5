@@ -5,36 +5,25 @@ import (
 	"time"
 )
 
+const Socks5Version = 5
+
 type AuthMethod byte
 
-// Authentication METHODs described in RFC 1928, section 3.
 const (
-	NoAuthRequired   AuthMethod = 0
-	PasswordAuth     AuthMethod = 2
-	NoAcceptableAuth AuthMethod = 255
+	AuthMethodNone      AuthMethod = 0   // no authentication required (RFC 1928, section 3)
+	AuthUserPass        AuthMethod = 2   // user/password authentication (RFC 1928, section 3)
+	AuthNoAcceptable    AuthMethod = 255 // no acceptable authentication methods (RFC 1928, section 3)
+	AuthSuccess                    = 0   // client auth accepted
+	AuthFailure                    = 1   // client auth denied
+	AuthUserPassVersion            = 1   // auth version byte (RFC 1929).
 )
 
-const (
-	AuthSuccess = 0
-	AuthFailure = 1
-)
-
-// PasswordAuthVersion is the auth version byte described in RFC 1929.
-const PasswordAuthVersion = 1
-
-// Socks5Version is the byte that represents the SOCKS version
-// in requests.
-const Socks5Version byte = 5
-
-// CommandType are the bytes sent in SOCKS5 packets
-// that represent the kind of connection the client needs.
 type CommandType byte
 
-// The set of valid SOCKS5 commands as described in RFC 1928.
 const (
-	ConnectCommand   CommandType = 1
-	BindCommand      CommandType = 2
-	AssociateCommand CommandType = 3
+	CommandConnect   CommandType = 1
+	CommandBind      CommandType = 2
+	CommandAssociate CommandType = 3
 )
 
 var (

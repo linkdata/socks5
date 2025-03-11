@@ -54,7 +54,7 @@ func (sess *session) authenticate() (authMethod socks5.AuthMethod, username stri
 			}
 		}
 	}
-	_, _ = sess.conn.Write([]byte{socks5.Socks5Version, byte(socks5.NoAcceptableAuth)})
+	_, _ = sess.conn.Write([]byte{socks5.Socks5Version, byte(socks5.AuthNoAcceptable)})
 	return
 }
 
@@ -63,11 +63,11 @@ func (sess *session) handleRequest(ctx context.Context) (err error) {
 	replyCode := socks5.GeneralFailure
 	if req, err = ReadRequest(sess.conn); err == nil {
 		switch req.Cmd {
-		case socks5.ConnectCommand:
+		case socks5.CommandConnect:
 			err = sess.handleCONNECT(ctx, req.Addr.String())
-		case socks5.AssociateCommand:
+		case socks5.CommandAssociate:
 			err = sess.handleASSOCIATE(ctx)
-		case socks5.BindCommand:
+		case socks5.CommandBind:
 			err = sess.handleBIND(ctx, req.Addr.String())
 		default:
 			replyCode = socks5.CommandNotSupported

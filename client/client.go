@@ -49,9 +49,9 @@ func (cli *Client) DialContext(ctx context.Context, network, address string) (co
 	err = socks5.ErrUnsupportedNetwork
 	switch network {
 	case "tcp", "tcp4", "tcp6":
-		conn, _, err = cli.do(ctx, socks5.ConnectCommand, address)
+		conn, _, err = cli.do(ctx, socks5.CommandConnect, address)
 	case "udp", "udp4", "udp6":
-		conn, _, err = cli.do(ctx, socks5.AssociateCommand, address)
+		conn, _, err = cli.do(ctx, socks5.CommandAssociate, address)
 	}
 	return
 }
@@ -118,16 +118,16 @@ func (cli *Client) connect(ctx context.Context, proxyconn net.Conn, cmd socks5.C
 	if err = cli.connectAuth(proxyconn); err == nil {
 		err = socks5.ErrUnsupportedCommand
 		switch cmd {
-		case socks5.ConnectCommand:
-			if addr, err = cli.connectCommand(proxyconn, socks5.ConnectCommand, address); err == nil {
+		case socks5.CommandConnect:
+			if addr, err = cli.connectCommand(proxyconn, socks5.CommandConnect, address); err == nil {
 				conn = proxyconn
 			}
-		case socks5.BindCommand:
-			if addr, err = cli.connectCommand(proxyconn, socks5.BindCommand, address); err == nil {
+		case socks5.CommandBind:
+			if addr, err = cli.connectCommand(proxyconn, socks5.CommandBind, address); err == nil {
 				conn = proxyconn
 			}
-		case socks5.AssociateCommand:
-			if addr, err = cli.connectCommand(proxyconn, socks5.AssociateCommand, ":0"); err == nil {
+		case socks5.CommandAssociate:
+			if addr, err = cli.connectCommand(proxyconn, socks5.CommandAssociate, ":0"); err == nil {
 				if conn, err = cli.proxyDial(ctx, "udp", addr.String()); err == nil {
 					if conn, err = NewUDPConn(conn, proxyconn, address); err == nil {
 						go func() {
@@ -144,9 +144,9 @@ func (cli *Client) connect(ctx context.Context, proxyconn net.Conn, cmd socks5.C
 
 func (cli *Client) connectAuth(conn net.Conn) (err error) {
 	var auths []byte
-	auths = append(auths, byte(socks5.NoAuthRequired))
+	auths = append(auths, byte(socks5.AuthMethodNone))
 	if cli.ProxyUsername != "" {
-		auths = append(auths, byte(socks5.PasswordAuth))
+		auths = append(auths, byte(socks5.AuthUserPass))
 	}
 
 	var b []byte
@@ -159,18 +159,18 @@ func (cli *Client) connectAuth(conn net.Conn) (err error) {
 			if err = socks5.MustEqual(header[0], socks5.Socks5Version, socks5.ErrVersion); err == nil {
 				err = socks5.ErrAuthMethodNotSupported
 				switch authmethod := socks5.AuthMethod(header[1]); authmethod {
-				case socks5.NoAcceptableAuth:
+				case socks5.AuthNoAcceptable:
 					err = socks5.ErrNoAcceptableAuthMethods
-				case socks5.NoAuthRequired:
+				case socks5.AuthMethodNone:
 					err = nil
-				case socks5.PasswordAuth:
+				case socks5.AuthUserPass:
 					var b []byte
-					b = append(b, socks5.PasswordAuthVersion)
+					b = append(b, socks5.AuthUserPassVersion)
 					if b, err = socks5.AppendString(b, cli.ProxyUsername, socks5.ErrIllegalUsername); err == nil {
 						if b, err = socks5.AppendString(b, cli.ProxyPassword, socks5.ErrIllegalPassword); err == nil {
 							if _, err = conn.Write(b); err == nil {
 								if _, err = io.ReadFull(conn, header[:]); err == nil {
-									if err = socks5.MustEqual(header[0], socks5.PasswordAuthVersion, socks5.ErrBadSOCKSAuthVersion); err == nil {
+									if err = socks5.MustEqual(header[0], socks5.AuthUserPassVersion, socks5.ErrBadSOCKSAuthVersion); err == nil {
 										err = socks5.MustEqual(header[1], 0, socks5.ErrAuthFailed)
 									}
 								}

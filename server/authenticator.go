@@ -18,7 +18,7 @@ type NoAuthAuthenticator struct{}
 
 func (a NoAuthAuthenticator) Socks5Authenticate(rw io.ReadWriter, am socks5.AuthMethod, _ string) (username string, err error) {
 	err = socks5.ErrAuthMethodNotSupported
-	if am == socks5.NoAuthRequired {
+	if am == socks5.AuthMethodNone {
 		_, err = rw.Write([]byte{socks5.Socks5Version, byte(am)})
 	}
 	return
@@ -31,12 +31,12 @@ type UserPassAuthenticator struct {
 
 func (a UserPassAuthenticator) Socks5Authenticate(rw io.ReadWriter, am socks5.AuthMethod, address string) (username string, err error) {
 	err = socks5.ErrAuthMethodNotSupported
-	if am == socks5.PasswordAuth {
+	if am == socks5.AuthUserPass {
 		resultcode := byte(socks5.AuthFailure)
 		if _, err = rw.Write([]byte{socks5.Socks5Version, byte(am)}); err == nil {
 			var hdr [2]byte
 			if _, err = io.ReadFull(rw, hdr[:]); err == nil {
-				if err = socks5.MustEqual(hdr[0], socks5.PasswordAuthVersion, socks5.ErrBadSOCKSAuthVersion); err == nil {
+				if err = socks5.MustEqual(hdr[0], socks5.AuthUserPassVersion, socks5.ErrBadSOCKSAuthVersion); err == nil {
 					usrLen := int(hdr[1])
 					usrBytes := make([]byte, usrLen)
 					if _, err = io.ReadFull(rw, usrBytes); err == nil {
@@ -58,7 +58,7 @@ func (a UserPassAuthenticator) Socks5Authenticate(rw io.ReadWriter, am socks5.Au
 				}
 			}
 		}
-		_, e := rw.Write([]byte{socks5.PasswordAuthVersion, resultcode})
+		_, e := rw.Write([]byte{socks5.AuthUserPassVersion, resultcode})
 		err = socks5.JoinErrs(err, e)
 	}
 	return
