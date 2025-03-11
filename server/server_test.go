@@ -123,4 +123,8 @@ func TestServer_Serve_TwoListeners(t *testing.T) {
 	for ctx.Err() == nil && srv.Serving() != 0 {
 		time.Sleep(time.Millisecond)
 	}
+
+	if ctx.Err() != nil {
+		t.Error(ctx.Err())
+	}
 }
