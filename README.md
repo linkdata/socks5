@@ -28,3 +28,53 @@ anonymous usage (`NoAuthAuthenticator`) or username/password authentication (`Us
 
 The `DialerSelector` interface allows selecting the `ContextDialer` to use for each outgoing connection
 based on authentication method, username, network and address. The default uses `socks5.DefaultDialer`.
+
+## Example
+
+```go
+package main
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net"
+	"time"
+
+	"github.com/linkdata/socks5/client"
+	"github.com/linkdata/socks5/server"
+)
+
+func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second/10)
+	defer cancel()
+
+	listener, err := net.Listen("tcp", ":0")
+	if err == nil {
+		defer listener.Close()
+		srv := server.Server{
+			Logger: slog.Default(),
+			Authenticators: []server.Authenticator{
+				server.NoAuthAuthenticator{},
+				server.UserPassAuthenticator{
+					Credentials: server.StaticCredentials{
+						"joe": "123456",
+					},
+				},
+			},
+		}
+		go srv.Serve(ctx, listener)
+		var cli *client.Client
+		if cli, err = client.New("socks5h://joe:123456@" + listener.Addr().String()); err == nil {
+			var l net.Listener
+			if l, err = cli.ListenContext(ctx, "tcp", ":0"); err == nil {
+				defer l.Close()
+				slog.Info("client BIND", "address", l.Addr().String())
+			}
+		}
+	}
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
+		slog.Error("failed", "error", err)
+	}
+}
+```
