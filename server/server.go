@@ -151,7 +151,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) (err error) {
 	}
 	s.mu.Unlock()
 	errchan := make(chan error, 1)
-	s.LogInfo("listening", "addr", l.Addr())
+	s.LogInfo("listening", "address", l.Addr())
 	go s.listenerMaintenance(ctx)
 	go s.listen(ctx, errchan, l)
 	select {
