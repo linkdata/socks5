@@ -10,7 +10,7 @@ import (
 type Authenticator interface {
 	// Socks5Authenticate provide authentication of users. Return socks5.ErrAuthMethodNotSupported if the method is
 	// not supported by the authenticator.
-	Socks5Authenticate(rw io.ReadWriter, am socks5.AuthMethod, userAddr string) (username string, err error)
+	Socks5Authenticate(rw io.ReadWriter, am socks5.AuthMethod, address string) (username string, err error)
 }
 
 // NoAuthAuthenticator is used to handle the "No Authentication" mode
@@ -29,7 +29,7 @@ type UserPassAuthenticator struct {
 	Credentials CredentialStore
 }
 
-func (a UserPassAuthenticator) Socks5Authenticate(rw io.ReadWriter, am socks5.AuthMethod, userAddr string) (username string, err error) {
+func (a UserPassAuthenticator) Socks5Authenticate(rw io.ReadWriter, am socks5.AuthMethod, address string) (username string, err error) {
 	err = socks5.ErrAuthMethodNotSupported
 	if am == socks5.PasswordAuth {
 		resultcode := byte(socks5.AuthFailure)
@@ -47,7 +47,7 @@ func (a UserPassAuthenticator) Socks5Authenticate(rw io.ReadWriter, am socks5.Au
 							if _, err = io.ReadFull(rw, pwdBytes); err == nil {
 								usr := string(usrBytes)
 								err = socks5.ErrAuthFailed
-								if a.Credentials.Socks5ValidateCredentials(usr, string(pwdBytes), userAddr) {
+								if a.Credentials.Socks5ValidateCredentials(usr, string(pwdBytes), address) {
 									err = nil
 									resultcode = socks5.AuthSuccess
 									username = usr
