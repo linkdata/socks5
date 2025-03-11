@@ -19,6 +19,8 @@ supports multiple concurrent `Accept()` calls, allowing you to reverse-proxy a s
 
 ## Server
 
+The server can listen on multiple listeners concurrently.
+
 The server provides two abstractions to customize it's behavior.
 
 The `Authenticator` interface allows custom authentication methods, and comes with implementations for

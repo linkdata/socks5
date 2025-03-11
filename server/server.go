@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/linkdata/socks5"
@@ -13,8 +12,6 @@ import (
 
 // Server is a SOCKS5 proxy server.
 type Server struct {
-	Started time.Time // time when Server.Serve() was called
-
 	// List of authentication providers. If nil, uses NoAuthAuthenticator.
 	// Order matters; they are tried in the given order.
 	Authenticators []Authenticator
@@ -26,9 +23,10 @@ type Server struct {
 	Logger socks5.Logger // If not nil, use this Logger (compatible with log/slog)
 	Debug  bool          // If true, output debug logging using Logger.Info
 
-	closed    atomic.Bool
 	mu        sync.Mutex // protects following
+	serving   int
 	listeners map[string]*listener
+	started   time.Time // time when Server.Serve() was called
 }
 
 func listenKey(client net.Conn, address string) (key string) {
@@ -47,7 +45,7 @@ func listenKey(client net.Conn, address string) (key string) {
 
 func (s *Server) getListener(ctx context.Context, client net.Conn, bindaddress string) (nl net.Listener, err error) {
 	err = net.ErrClosed
-	if !s.closed.Load() {
+	if s.Serving() > 0 {
 		err = nil
 		key := listenKey(client, bindaddress)
 		var lc net.ListenConfig
@@ -113,9 +111,10 @@ func (s *Server) maybeLogError(err error, msg string, keyvaluepairs ...any) {
 }
 
 func (s *Server) close() {
-	if !s.closed.Swap(true) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.serving--
+	if s.serving < 1 {
 		for _, l := range s.listeners {
 			_ = s.Debug && s.LogDebug("Server.close(): listener stop", "address", l.key)
 			l.refs.Store(0)
@@ -125,14 +124,26 @@ func (s *Server) close() {
 	}
 }
 
+// Serving returns the number of active calls to Serve()
+func (s *Server) Serving() (n int) {
+	s.mu.Lock()
+	n = s.serving
+	s.mu.Unlock()
+	return
+}
+
 // Serve accepts and handles incoming connections on the given listener.
 func (s *Server) Serve(ctx context.Context, l net.Listener) (err error) {
-	defer l.Close()
 	defer s.close()
-	s.Started = time.Now()
+	s.mu.Lock()
+	s.serving++
+	if s.listeners == nil {
+		s.listeners = make(map[string]*listener)
+		s.started = time.Now()
+	}
+	s.mu.Unlock()
 	errchan := make(chan error, 1)
 	s.LogInfo("listening", "addr", l.Addr())
-	s.listeners = make(map[string]*listener)
 	go s.listenerMaintenance(ctx)
 	go s.listen(ctx, errchan, l)
 	select {
@@ -145,7 +156,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) (err error) {
 func (s *Server) listenerCleanup() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	deadline := int64(time.Since(s.Started) - socks5.ListenerTimeout)
+	deadline := int64(time.Since(s.started) - socks5.ListenerTimeout)
 	for k, l := range s.listeners {
 		if refs := l.refs.Load(); refs < 1 {
 			if died := l.died.Load(); died < deadline {

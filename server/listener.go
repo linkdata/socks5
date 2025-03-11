@@ -16,7 +16,7 @@ type listener struct {
 
 func (l *listener) Close() (err error) {
 	if refs := l.refs.Add(-1); refs < 1 {
-		died := int64(time.Since(l.srv.Started))
+		died := int64(time.Since(l.srv.started))
 		l.died.Store(died)
 		_ = l.srv.Debug && l.srv.LogDebug("listener deref", "key", l.key, "refs", refs, "died", died)
 	}
