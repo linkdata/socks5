@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/linkdata/socks5"
+	"github.com/linkdata/socks5/server"
 	"github.com/linkdata/socks5test"
 )
 
 func init() {
-	socks5.UDPTimeout = time.Millisecond * 10
+	server.UDPTimeout = time.Millisecond * 10
 }
 
 func TestUDP_Single(t *testing.T) {

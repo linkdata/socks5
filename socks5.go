@@ -2,7 +2,6 @@ package socks5
 
 import (
 	"net"
-	"time"
 )
 
 const Socks5Version = 5
@@ -27,8 +26,6 @@ const (
 )
 
 var (
-	DefaultDialer   ContextDialer = &net.Dialer{}
-	LogPrefix                     = "socks5: "
-	UDPTimeout                    = time.Second * 10
-	ListenerTimeout               = time.Second * 1
+	DefaultDialer ContextDialer = &net.Dialer{}
+	LogPrefix                   = "socks5: "
 )

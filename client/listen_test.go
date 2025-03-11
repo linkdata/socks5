@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/linkdata/socks5"
+	"github.com/linkdata/socks5/server"
 	"github.com/linkdata/socks5test"
 )
 
 func init() {
-	socks5.ListenerTimeout = time.Millisecond * 10
+	server.ListenerTimeout = time.Millisecond * 10
 }
 
 func TestListen_SingleRequest(t *testing.T) {

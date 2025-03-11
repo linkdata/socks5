@@ -164,7 +164,7 @@ func (s *Server) Serve(ctx context.Context, l net.Listener) (err error) {
 func (s *Server) listenerCleanup() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	deadline := int64(time.Since(s.started) - socks5.ListenerTimeout)
+	deadline := int64(time.Since(s.started) - ListenerTimeout)
 	for k, l := range s.listeners {
 		if refs := l.refs.Load(); refs < 1 {
 			if died := l.died.Load(); died < deadline {
@@ -177,7 +177,7 @@ func (s *Server) listenerCleanup() {
 }
 
 func (s *Server) listenerMaintenance(ctx context.Context) {
-	tmr := time.NewTicker(socks5.ListenerTimeout)
+	tmr := time.NewTicker(ListenerTimeout)
 	defer tmr.Stop()
 	for {
 		select {
