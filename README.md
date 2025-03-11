@@ -7,10 +7,11 @@
 
 SOCKS5 client and server. Full test coverage provided by https://github.com/linkdata/socks5test.
 
-- [x] Support for the CONNECT command
-- [x] Support for the BIND command
-- [x] Support for the ASSOCIATE command
-- [x] Uses ContextDialer's for easy interoperation with other packages
+- Support for the CONNECT command
+- Support for the BIND command
+- Support for the ASSOCIATE command
+- Uses ContextDialer's for easy interoperation with other packages
+- Only depends on the standard library
 
 ## Client
 
