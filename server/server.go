@@ -29,6 +29,14 @@ type Server struct {
 	started   time.Time // time when Server.Serve() was called
 }
 
+var (
+	// UDPTimeout is how long before we stop listening on UDP sockets opened in support of an ASSOCIATE command.
+	UDPTimeout = time.Second * 10
+
+	// ListenerTimeout is how long to keep a BIND socket open after the client is done with it.
+	ListenerTimeout = time.Second * 1
+)
+
 func listenKey(client net.Conn, address string) (key string) {
 	if host, port, err := net.SplitHostPort(address); err == nil {
 		if port != "0" {
