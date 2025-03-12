@@ -2,15 +2,9 @@ package client_test
 
 import (
 	"testing"
-	"time"
 
-	"github.com/linkdata/socks5/server"
 	"github.com/linkdata/socks5test"
 )
-
-func init() {
-	server.ListenerTimeout = time.Millisecond * 10
-}
 
 func TestListen_SingleRequest(t *testing.T) {
 	socks5test.Listen_SingleRequest(t, srvfn, clifn)

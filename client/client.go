@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net"
 	"net/netip"
@@ -12,35 +13,59 @@ import (
 )
 
 type Client struct {
-	ProxyAddress        string               // proxy server address
-	ProxyDialer         socks5.ContextDialer // dialer to use when dialing the proxy, nil for socks5.DefaultDialer
-	ProxyUsername       string               // user name
-	ProxyPassword       string               // user password
+	URL                 *url.URL
+	ProxyDialer         socks5.ContextDialer // dialer to use when dialing the SOCKS5 server, nil for socks5.DefaultDialer
 	socks5.HostLookuper                      // resolver to use, nil for net.DefaultResolver
 	LocalResolve        bool                 // if true, always resolve hostnames with HostLookuper
+}
+
+var ErrNotContextDialer = errors.New("not a ContextDialer")
+
+// FromURL has the same signature as golang.org/x/net/proxy.FromURL(),
+// but it requires that the forward dialer is nil or implements ContextDialer.
+// The returned Dialer will implement ContextDialer if there is no error.
+func FromURL(u *url.URL, forward socks5.Dialer) (d socks5.Dialer, err error) {
+	cd := socks5.DefaultDialer
+	if forward != nil {
+		err = ErrNotContextDialer
+		if fd, ok := forward.(socks5.ContextDialer); ok {
+			err = nil
+			cd = fd
+		}
+	}
+	if err == nil {
+		var cli *Client
+		if cli, err = NewFromURL(u); err == nil {
+			cli.ProxyDialer = cd
+			d = cli
+		}
+	}
+	return
+}
+
+func NewFromURL(u *url.URL) (cli *Client, err error) {
+	var localResolve bool
+	err = socks5.ErrUnsupportedScheme
+	switch u.Scheme {
+	case "socks5":
+		localResolve = true
+		fallthrough
+	case "socks5h":
+		err = nil
+	}
+	if err == nil {
+		cli = &Client{
+			URL:          u,
+			LocalResolve: localResolve,
+		}
+	}
+	return
 }
 
 func New(urlstr string) (cli *Client, err error) {
 	var u *url.URL
 	if u, err = url.Parse(urlstr); err == nil {
-		localResolve := true
-		switch u.Scheme {
-		case "socks5":
-		case "socks5h":
-			localResolve = false
-		default:
-			err = socks5.ErrUnsupportedScheme
-		}
-		if err == nil {
-			cli = &Client{
-				ProxyAddress: u.Host,
-				LocalResolve: localResolve,
-			}
-			if ui := u.User; ui != nil {
-				cli.ProxyUsername = ui.Username()
-				cli.ProxyPassword, _ = ui.Password()
-			}
-		}
+		cli, err = NewFromURL(u)
 	}
 	return
 }
@@ -103,7 +128,7 @@ func (cli *Client) resolve(ctx context.Context, hostport string) (ipandport stri
 
 func (cli *Client) do(ctx context.Context, cmd socks5.CommandType, address string) (conn net.Conn, addr socks5.Addr, err error) {
 	if address, err = cli.resolve(ctx, address); err == nil {
-		if conn, err = cli.proxyDial(ctx, "tcp", cli.ProxyAddress); err == nil {
+		if conn, err = cli.proxyDial(ctx, "tcp", cli.URL.Host); err == nil {
 			conn, addr, err = cli.connect(ctx, conn, cmd, address)
 		}
 	}
@@ -145,7 +170,8 @@ func (cli *Client) connect(ctx context.Context, proxyconn net.Conn, cmd socks5.C
 func (cli *Client) connectAuth(conn net.Conn) (err error) {
 	var auths []byte
 	auths = append(auths, byte(socks5.AuthMethodNone))
-	if cli.ProxyUsername != "" {
+	usr := cli.URL.User
+	if usr != nil {
 		auths = append(auths, byte(socks5.AuthUserPass))
 	}
 
@@ -164,14 +190,17 @@ func (cli *Client) connectAuth(conn net.Conn) (err error) {
 				case socks5.AuthMethodNone:
 					err = nil
 				case socks5.AuthUserPass:
-					var b []byte
-					b = append(b, socks5.AuthUserPassVersion)
-					if b, err = socks5.AppendString(b, cli.ProxyUsername, socks5.ErrIllegalUsername); err == nil {
-						if b, err = socks5.AppendString(b, cli.ProxyPassword, socks5.ErrIllegalPassword); err == nil {
-							if _, err = conn.Write(b); err == nil {
-								if _, err = io.ReadFull(conn, header[:]); err == nil {
-									if err = socks5.MustEqual(header[0], socks5.AuthUserPassVersion, socks5.ErrBadSOCKSAuthVersion); err == nil {
-										err = socks5.MustEqual(header[1], 0, socks5.ErrAuthFailed)
+					if usr != nil {
+						var b []byte
+						b = append(b, socks5.AuthUserPassVersion)
+						if b, err = socks5.AppendString(b, usr.Username(), socks5.ErrIllegalUsername); err == nil {
+							pwd, _ := usr.Password()
+							if b, err = socks5.AppendString(b, pwd, socks5.ErrIllegalPassword); err == nil {
+								if _, err = conn.Write(b); err == nil {
+									if _, err = io.ReadFull(conn, header[:]); err == nil {
+										if err = socks5.MustEqual(header[0], socks5.AuthUserPassVersion, socks5.ErrBadSOCKSAuthVersion); err == nil {
+											err = socks5.MustEqual(header[1], 0, socks5.ErrAuthFailed)
+										}
 									}
 								}
 							}
@@ -219,7 +248,7 @@ func (cli *Client) resolver() (hl socks5.HostLookuper) {
 	return
 }
 
-func (cli *Client) proxyDial(ctx context.Context, network, address string) (net.Conn, error) {
+func (cli *Client) proxyDial(ctx context.Context, network, address string) (conn net.Conn, err error) {
 	proxyDial := cli.ProxyDialer
 	if proxyDial == nil {
 		proxyDial = socks5.DefaultDialer
