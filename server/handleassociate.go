@@ -26,7 +26,7 @@ func (sess *session) handleASSOCIATE(ctx context.Context) (err error) {
 			var bindPort uint16
 			if bindAddr, bindPort, err = socks5.SplitHostPort(clientUDPConn.LocalAddr().String()); err == nil {
 				res := &Response{
-					Reply: socks5.Success,
+					Reply: socks5.ReplySuccess,
 					Addr:  socks5.AddrFromHostPort(bindAddr, bindPort),
 				}
 				var buf []byte
@@ -40,7 +40,7 @@ func (sess *session) handleASSOCIATE(ctx context.Context) (err error) {
 		}
 	}
 	sess.maybeLogError(err, "ASSOCIATE", "session", sess.conn.RemoteAddr())
-	return sess.fail(socks5.GeneralFailure, err)
+	return sess.fail(err)
 }
 
 func (sess *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUDPConn net.PacketConn) (err error) {

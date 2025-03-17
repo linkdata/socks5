@@ -9,7 +9,7 @@ func TestReplyCode_ToError(t *testing.T) {
 		}
 	}
 	code := ReplyCode(254)
-	if x := code.ToError().Error(); x != "code(254)" {
+	if x := code.ToError().Error(); x != "socks5code(254)" {
 		t.Error(x)
 	}
 }

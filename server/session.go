@@ -60,7 +60,6 @@ func (sess *session) authenticate() (authMethod socks5.AuthMethod, username stri
 
 func (sess *session) handleRequest(ctx context.Context) (err error) {
 	var req *Request
-	replyCode := socks5.GeneralFailure
 	if req, err = ReadRequest(sess.conn); err == nil {
 		switch req.Cmd {
 		case socks5.CommandConnect:
@@ -70,15 +69,18 @@ func (sess *session) handleRequest(ctx context.Context) (err error) {
 		case socks5.CommandBind:
 			err = sess.handleBIND(ctx, req.Addr.String())
 		default:
-			replyCode = socks5.CommandNotSupported
-			err = socks5.ErrUnsupportedCommand
+			err = socks5.ErrReplyCommandNotSupported
 		}
 	}
-	return sess.fail(replyCode, err)
+	return sess.fail(err)
 }
 
-func (sess *session) fail(replyCode socks5.ReplyCode, err error) error {
+func (sess *session) fail(err error) error {
 	if err != nil {
+		replyCode := socks5.ReplyGeneralFailure
+		if re, ok := err.(socks5.ReplyError); ok {
+			replyCode = re.ReplyCode
+		}
 		rsp := Response{Addr: socks5.ZeroAddr, Reply: replyCode}
 		buf, _ := rsp.MarshalBinary()
 		_, _ = sess.conn.Write(buf)

@@ -141,7 +141,7 @@ func (cli *Client) connect(ctx context.Context, proxyconn net.Conn, cmd socks5.C
 		defer proxyconn.SetDeadline(time.Time{})
 	}
 	if err = cli.connectAuth(proxyconn); err == nil {
-		err = socks5.ErrUnsupportedCommand
+		err = socks5.ErrReplyCommandNotSupported
 		switch cmd {
 		case socks5.CommandConnect:
 			if addr, err = cli.connectCommand(proxyconn, socks5.CommandConnect, address); err == nil {
@@ -233,7 +233,7 @@ func (cli *Client) readReply(conn net.Conn) (addr socks5.Addr, err error) {
 	if _, err = io.ReadFull(conn, header[:]); err == nil {
 		if err = socks5.MustEqual(header[0], socks5.Socks5Version, socks5.ErrVersion); err == nil {
 			replyCode := socks5.ReplyCode(header[1])
-			if err = socks5.MustEqual(replyCode, socks5.Success, replyCode.ToError()); err == nil {
+			if err = socks5.MustEqual(replyCode, socks5.ReplySuccess, replyCode.ToError()); err == nil {
 				addr, err = socks5.ReadAddr(conn)
 			}
 		}

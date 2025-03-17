@@ -24,7 +24,7 @@ func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error
 		defer listener.Close()
 		var addr socks5.Addr
 		if addr, err = socks5.AddrFromString(listener.Addr().String()); err == nil {
-			if err = sendReply(sess.conn, socks5.Success, addr); err == nil {
+			if err = sendReply(sess.conn, socks5.ReplySuccess, addr); err == nil {
 				_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "listen", addr)
 				var conn net.Conn
 				if conn, err = listener.Accept(); err == nil {
@@ -32,7 +32,7 @@ func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error
 					var remoteAddr socks5.Addr
 					if remoteAddr, err = socks5.AddrFromString(conn.RemoteAddr().String()); err == nil {
 						_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "remote-bound", remoteAddr)
-						if err = sendReply(sess.conn, socks5.Success, remoteAddr); err == nil {
+						if err = sendReply(sess.conn, socks5.ReplySuccess, remoteAddr); err == nil {
 							_ = sess.Debug && sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "remote-start", remoteAddr)
 							ctx, cancel := context.WithCancel(ctx)
 							go func() {
@@ -53,6 +53,6 @@ func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error
 		}
 	}
 	sess.maybeLogError(err, "BIND", "session", sess.conn.RemoteAddr(), "adress", bindaddr)
-	_ = sendReply(sess.conn, socks5.GeneralFailure, socks5.ZeroAddr)
+	_ = sendReply(sess.conn, socks5.ReplyGeneralFailure, socks5.ZeroAddr)
 	return
 }

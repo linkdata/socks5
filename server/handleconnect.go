@@ -23,7 +23,7 @@ func (sess *session) handleCONNECT(ctx context.Context, addr string) (err error)
 		var serverPort uint16
 		if serverAddr, serverPort, err = socks5.SplitHostPort(localAddr); err == nil {
 			res := &Response{
-				Reply: socks5.Success,
+				Reply: socks5.ReplySuccess,
 				Addr:  socks5.AddrFromHostPort(serverAddr, serverPort),
 			}
 			var buf []byte
@@ -44,5 +44,5 @@ func (sess *session) handleCONNECT(ctx context.Context, addr string) (err error)
 		}
 	}
 	sess.maybeLogError(err, "CONNECT", "session", sess.conn.RemoteAddr(), "adress", addr)
-	return sess.fail(socks5.GeneralFailure, err)
+	return sess.fail(err)
 }
