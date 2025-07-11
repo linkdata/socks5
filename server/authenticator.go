@@ -9,7 +9,8 @@ import (
 // Authenticator provide authentication of users.
 type Authenticator interface {
 	// Socks5Authenticate provide authentication of users. Return socks5.ErrAuthMethodNotSupported if the method is
-	// not supported by the authenticator.
+	// not supported by the authenticator. For non-anonymous methods, the returned username must not be the
+	// empty string.
 	Socks5Authenticate(rw io.ReadWriter, am socks5.AuthMethod, address string) (username string, err error)
 }
 

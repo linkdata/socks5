@@ -8,16 +8,15 @@ import (
 )
 
 type session struct {
-	*Server                      // server we belong to
-	conn       net.Conn          // client session connection
-	username   string            // username, if available
-	authMethod socks5.AuthMethod // authentication method
+	*Server           // server we belong to
+	conn     net.Conn // client session connection
+	username string   // username, empty string if anonymous (AuthMethodNone)
 }
 
 func (sess *session) DialContext(ctx context.Context, network, addr string) (conn net.Conn, err error) {
 	var dialer socks5.ContextDialer
 	if sess.Server.DialerSelector != nil {
-		dialer, err = sess.Server.DialerSelector.Socks5SelectDialer(sess.authMethod, sess.username, network, addr)
+		dialer, err = sess.Server.DialerSelector.SelectDialer(sess.username, network, addr)
 	}
 	if err == nil {
 		if dialer == nil {
@@ -29,13 +28,13 @@ func (sess *session) DialContext(ctx context.Context, network, addr string) (con
 }
 
 func (sess *session) serve(ctx context.Context) (err error) {
-	if sess.authMethod, sess.username, err = sess.authenticate(); err == nil {
+	if sess.username, err = sess.authenticate(); err == nil {
 		err = sess.handleRequest(ctx)
 	}
 	return
 }
 
-func (sess *session) authenticate() (authMethod socks5.AuthMethod, username string, err error) {
+func (sess *session) authenticate() (username string, err error) {
 	var clientAuthMethods []socks5.AuthMethod
 	if clientAuthMethods, err = readClientGreeting(sess.conn); err == nil {
 		err = socks5.ErrNoAcceptableAuthMethods
@@ -46,7 +45,6 @@ func (sess *session) authenticate() (authMethod socks5.AuthMethod, username stri
 		for _, auther := range authenticators {
 			for _, clientAuth := range clientAuthMethods {
 				if s, e := auther.Socks5Authenticate(sess.conn, clientAuth, sess.conn.RemoteAddr().String()); e != socks5.ErrAuthMethodNotSupported {
-					authMethod = clientAuth
 					username = s
 					err = e
 					return
