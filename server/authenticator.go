@@ -27,7 +27,7 @@ func (a NoAuthAuthenticator) Socks5Authenticate(rw io.ReadWriter, am socks5.Auth
 
 // UserPassAuthenticator is used to handle username/password based authentication.
 type UserPassAuthenticator struct {
-	Credentials CredentialStore
+	Credentials CredentialsValidator
 }
 
 func (a UserPassAuthenticator) Socks5Authenticate(rw io.ReadWriter, am socks5.AuthMethod, address string) (username string, err error) {
@@ -48,7 +48,7 @@ func (a UserPassAuthenticator) Socks5Authenticate(rw io.ReadWriter, am socks5.Au
 							if _, err = io.ReadFull(rw, pwdBytes); err == nil {
 								usr := string(usrBytes)
 								err = socks5.ErrAuthFailed
-								if a.Credentials.Socks5ValidateCredentials(usr, string(pwdBytes), address) {
+								if a.Credentials.ValidateCredentials(usr, string(pwdBytes), address) {
 									err = nil
 									resultcode = socks5.AuthSuccess
 									username = usr
