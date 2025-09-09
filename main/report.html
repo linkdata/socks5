@@ -1,0 +1,1802 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>socks5: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/linkdata/socks5/addr.go (100.0%)</option>
+				
+				<option value="file1">github.com/linkdata/socks5/appendstring.go (100.0%)</option>
+				
+				<option value="file2">github.com/linkdata/socks5/client/client.go (100.0%)</option>
+				
+				<option value="file3">github.com/linkdata/socks5/client/listener.go (100.0%)</option>
+				
+				<option value="file4">github.com/linkdata/socks5/client/udpconn.go (100.0%)</option>
+				
+				<option value="file5">github.com/linkdata/socks5/errors.go (100.0%)</option>
+				
+				<option value="file6">github.com/linkdata/socks5/mustequal.go (100.0%)</option>
+				
+				<option value="file7">github.com/linkdata/socks5/note.go (100.0%)</option>
+				
+				<option value="file8">github.com/linkdata/socks5/replycode.go (100.0%)</option>
+				
+				<option value="file9">github.com/linkdata/socks5/replyerror.go (100.0%)</option>
+				
+				<option value="file10">github.com/linkdata/socks5/server/authenticator.go (100.0%)</option>
+				
+				<option value="file11">github.com/linkdata/socks5/server/credentialsvalidator.go (100.0%)</option>
+				
+				<option value="file12">github.com/linkdata/socks5/server/handleassociate.go (100.0%)</option>
+				
+				<option value="file13">github.com/linkdata/socks5/server/handlebind.go (100.0%)</option>
+				
+				<option value="file14">github.com/linkdata/socks5/server/handleconnect.go (100.0%)</option>
+				
+				<option value="file15">github.com/linkdata/socks5/server/listener.go (100.0%)</option>
+				
+				<option value="file16">github.com/linkdata/socks5/server/request.go (100.0%)</option>
+				
+				<option value="file17">github.com/linkdata/socks5/server/response.go (100.0%)</option>
+				
+				<option value="file18">github.com/linkdata/socks5/server/server.go (100.0%)</option>
+				
+				<option value="file19">github.com/linkdata/socks5/server/session.go (100.0%)</option>
+				
+				<option value="file20">github.com/linkdata/socks5/splithostport.go (100.0%)</option>
+				
+				<option value="file21">github.com/linkdata/socks5/udppacket.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package socks5
+
+import (
+        "encoding"
+        "encoding/binary"
+        "errors"
+        "io"
+        "net"
+        "net/netip"
+        "strconv"
+)
+
+// AddrType are the bytes sent in SOCKS5 packets
+// that represent particular address types.
+type AddrType byte
+
+// The set of valid SOCKS5 address types as defined in RFC 1928.
+const (
+        Ipv4       AddrType = 1
+        DomainName AddrType = 3
+        Ipv6       AddrType = 4
+)
+
+type Addr struct {
+        Addr string
+        Port uint16
+        Type AddrType
+}
+
+var _ encoding.BinaryMarshaler = Addr{}
+var _ encoding.BinaryAppender = Addr{}
+
+var (
+        ErrInvalidIPv4Address     = errors.New("invalid IPv4 address for binding")
+        ErrInvalidIPv6Address     = errors.New("invalid IPv6 address for binding")
+        ErrUnsupportedAddressType = errors.New("unsupported address type")
+        ErrInvalidDomainName      = errors.New("invalid domain name for binding")
+)
+
+var ZeroAddr = Addr{Type: Ipv4, Addr: "0.0.0.0", Port: 0}
+
+func AddrFromHostPort(host string, port uint16) (addr Addr) <span class="cov8" title="1">{
+        if host != "" </span><span class="cov8" title="1">{
+                addr.Addr = host
+                if ipaddr, err := netip.ParseAddr(host); err == nil </span><span class="cov8" title="1">{
+                        ipaddr = ipaddr.Unmap()
+                        if ipaddr.Is4() </span><span class="cov8" title="1">{
+                                addr.Type = Ipv4
+                        }</span> else<span class="cov8" title="1"> {
+                                addr.Type = Ipv6
+                        }</span>
+                } else<span class="cov8" title="1"> {
+                        addr.Type = DomainName
+                }</span>
+        } else<span class="cov8" title="1"> {
+                addr = ZeroAddr
+        }</span>
+        <span class="cov8" title="1">addr.Port = port
+        return</span>
+}
+
+func AddrFromString(s string) (addr Addr, err error) <span class="cov8" title="1">{
+        var host string
+        var port uint16
+        if host, port, err = SplitHostPort(s); err == nil </span><span class="cov8" title="1">{
+                addr = AddrFromHostPort(host, port)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func ReadAddr(r io.Reader) (addr Addr, err error) <span class="cov8" title="1">{
+        var addrTypeData [1]byte
+        if _, err = io.ReadFull(r, addrTypeData[:]); err == nil </span><span class="cov8" title="1">{
+                addr.Type = AddrType(addrTypeData[0])
+                switch addr.Type </span>{
+                case Ipv4:<span class="cov8" title="1">
+                        var ip [4]byte
+                        if _, err = io.ReadFull(r, ip[:]); err == nil </span><span class="cov8" title="1">{
+                                addr.Addr = netip.AddrFrom4(ip).String()
+                        }</span>
+                case DomainName:<span class="cov8" title="1">
+                        var dstSizeByte [1]byte
+                        if _, err = io.ReadFull(r, dstSizeByte[:]); err == nil </span><span class="cov8" title="1">{
+                                dstSize := int(dstSizeByte[0])
+                                domainName := make([]byte, dstSize)
+                                if _, err = io.ReadFull(r, domainName); err == nil </span><span class="cov8" title="1">{
+                                        addr.Addr = string(domainName)
+                                }</span>
+                        }
+                case Ipv6:<span class="cov8" title="1">
+                        var ip [16]byte
+                        if _, err = io.ReadFull(r, ip[:]); err == nil </span><span class="cov8" title="1">{
+                                addr.Addr = netip.AddrFrom16(ip).String()
+                        }</span>
+                default:<span class="cov8" title="1">
+                        err = ErrUnsupportedAddressType</span>
+                }
+                <span class="cov8" title="1">if err == nil </span><span class="cov8" title="1">{
+                        var portBytes [2]byte
+                        if _, err = io.ReadFull(r, portBytes[:]); err == nil </span><span class="cov8" title="1">{
+                                addr.Port = binary.BigEndian.Uint16(portBytes[:])
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func requireIPv4(s string) (addr netip.Addr, err error) <span class="cov8" title="1">{
+        if addr, err = netip.ParseAddr(s); err == nil </span><span class="cov8" title="1">{
+                addr = addr.Unmap()
+                if !addr.Is4() </span><span class="cov8" title="1">{
+                        err = ErrInvalidIPv4Address
+                }</span>
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func requireIPv6(s string) (addr netip.Addr, err error) <span class="cov8" title="1">{
+        if addr, err = netip.ParseAddr(s); err == nil </span><span class="cov8" title="1">{
+                if !addr.Is6() </span><span class="cov8" title="1">{
+                        err = ErrInvalidIPv6Address
+                }</span>
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (s Addr) AppendBinary(inbuf []byte) (outbuf []byte, err error) <span class="cov8" title="1">{
+        var data []byte
+        var addr netip.Addr
+        switch s.Type </span>{
+        case Ipv4:<span class="cov8" title="1">
+                if addr, err = requireIPv4(s.Addr); err == nil </span><span class="cov8" title="1">{
+                        data, err = addr.AppendBinary(data)
+                }</span>
+        case DomainName:<span class="cov8" title="1">
+                data, err = AppendString(data, s.Addr, ErrInvalidDomainName)</span>
+        case Ipv6:<span class="cov8" title="1">
+                if addr, err = requireIPv6(s.Addr); err == nil </span><span class="cov8" title="1">{
+                        data, err = addr.AppendBinary(data)
+                }</span>
+        default:<span class="cov8" title="1">
+                err = ErrUnsupportedAddressType</span>
+        }
+        <span class="cov8" title="1">if err == nil </span><span class="cov8" title="1">{
+                outbuf = append(inbuf, byte(s.Type))
+                outbuf = append(outbuf, data...)
+                outbuf = binary.BigEndian.AppendUint16(outbuf, s.Port)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func (s Addr) MarshalBinary() ([]byte, error) <span class="cov8" title="1">{
+        return s.AppendBinary(nil)
+}</span>
+
+func (s Addr) Network() string <span class="cov8" title="1">{
+        return "tcp"
+}</span>
+
+func (s Addr) String() string <span class="cov8" title="1">{
+        return net.JoinHostPort(s.Addr, strconv.Itoa(int(s.Port)))
+}</span>
+
+func (s *Addr) IsAny() bool <span class="cov8" title="1">{
+        return s.Addr == "0.0.0.0" || s.Addr == "::"
+}</span>
+
+func (s *Addr) ReplaceAny(hostport string) <span class="cov8" title="1">{
+        if s.IsAny() </span><span class="cov8" title="1">{
+                if nip, err := netip.ParseAddrPort(hostport); err == nil </span><span class="cov8" title="1">{
+                        addr := nip.Addr()
+                        addr = addr.Unmap()
+                        s.Addr = addr.String()
+                        s.Type = Ipv4
+                        if addr.Is6() </span><span class="cov8" title="1">{
+                                s.Type = Ipv6
+                        }</span>
+                }
+        }
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package socks5
+
+func AppendString(inbuf []byte, s string, lengtherror error) (outbuf []byte, err error) <span class="cov8" title="1">{
+        err = lengtherror
+        if len(s) &lt; 256 </span><span class="cov8" title="1">{
+                err = nil
+                outbuf = append(inbuf, byte(len(s)))
+                outbuf = append(outbuf, s...)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package client
+
+import (
+        "context"
+        "errors"
+        "io"
+        "net"
+        "net/netip"
+        "net/url"
+        "time"
+
+        "github.com/linkdata/socks5"
+)
+
+type Client struct {
+        URL                 *url.URL
+        ProxyDialer         socks5.ContextDialer // dialer to use when dialing the SOCKS5 server, nil for socks5.DefaultDialer
+        socks5.HostLookuper                      // resolver to use, nil for net.DefaultResolver
+        LocalResolve        bool                 // if true, always resolve hostnames with HostLookuper
+}
+
+var ErrNotContextDialer = errors.New("not a ContextDialer")
+
+// FromURL has the same signature as golang.org/x/net/proxy.FromURL(),
+// but it requires that the forward dialer is nil or implements ContextDialer.
+// The returned Dialer will implement ContextDialer if there is no error.
+func FromURL(u *url.URL, forward socks5.Dialer) (d socks5.Dialer, err error) <span class="cov8" title="1">{
+        cd := socks5.DefaultDialer
+        if forward != nil </span><span class="cov8" title="1">{
+                err = ErrNotContextDialer
+                if fd, ok := forward.(socks5.ContextDialer); ok </span><span class="cov8" title="1">{
+                        err = nil
+                        cd = fd
+                }</span>
+        }
+        <span class="cov8" title="1">if err == nil </span><span class="cov8" title="1">{
+                var cli *Client
+                if cli, err = NewFromURL(u); err == nil </span><span class="cov8" title="1">{
+                        cli.ProxyDialer = cd
+                        d = cli
+                }</span>
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func NewFromURL(u *url.URL) (cli *Client, err error) <span class="cov8" title="1">{
+        var localResolve bool
+        err = socks5.ErrUnsupportedScheme
+        switch u.Scheme </span>{
+        case "socks5":<span class="cov8" title="1">
+                localResolve = true
+                fallthrough</span>
+        case "socks5h":<span class="cov8" title="1">
+                err = nil</span>
+        }
+        <span class="cov8" title="1">if err == nil </span><span class="cov8" title="1">{
+                cli = &amp;Client{
+                        URL:          u,
+                        LocalResolve: localResolve,
+                }
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func New(urlstr string) (cli *Client, err error) <span class="cov8" title="1">{
+        var u *url.URL
+        if u, err = url.Parse(urlstr); err == nil </span><span class="cov8" title="1">{
+                cli, err = NewFromURL(u)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func (cli *Client) DialContext(ctx context.Context, network, address string) (conn net.Conn, err error) <span class="cov8" title="1">{
+        err = socks5.ErrUnsupportedNetwork
+        switch network </span>{
+        case "tcp", "tcp4", "tcp6":<span class="cov8" title="1">
+                conn, _, err = cli.do(ctx, socks5.CommandConnect, address)</span>
+        case "udp", "udp4", "udp6":<span class="cov8" title="1">
+                conn, _, err = cli.do(ctx, socks5.CommandAssociate, address)</span>
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (cli *Client) Dial(network, address string) (net.Conn, error) <span class="cov8" title="1">{
+        return cli.DialContext(context.Background(), network, address)
+}</span>
+
+func (cli *Client) ListenContext(ctx context.Context, network, address string) (l net.Listener, err error) <span class="cov8" title="1">{
+        err = socks5.ErrUnsupportedNetwork
+        switch network </span>{
+        case "tcp", "tcp4", "tcp6":<span class="cov8" title="1">
+                l, err = cli.bindTCP(ctx, address)</span>
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (cli *Client) Listen(network, address string) (l net.Listener, err error) <span class="cov8" title="1">{
+        return cli.ListenContext(context.Background(), network, address)
+}</span>
+
+func (cli *Client) resolve(ctx context.Context, hostport string) (ipandport string, err error) <span class="cov8" title="1">{
+        ipandport = hostport
+        if cli.LocalResolve </span><span class="cov8" title="1">{
+                var host, port string
+                if host, port, err = net.SplitHostPort(hostport); err == nil &amp;&amp; host != "" </span><span class="cov8" title="1">{
+                        if _, e := netip.ParseAddr(host); e != nil </span><span class="cov8" title="1">{
+                                var addrs []string
+                                if addrs, err = cli.resolver().LookupHost(ctx, host); err == nil </span><span class="cov8" title="1">{
+                                        var useip netip.Addr
+                                        for _, s := range addrs </span><span class="cov8" title="1">{
+                                                if useip, err = netip.ParseAddr(s); err == nil </span><span class="cov8" title="1">{
+                                                        useip = useip.Unmap()
+                                                        if useip.Is4() </span><span class="cov8" title="1">{
+                                                                break</span>
+                                                        }
+                                                }
+                                        }
+                                        <span class="cov8" title="1">if useip.IsValid() </span><span class="cov8" title="1">{
+                                                ipandport = net.JoinHostPort(useip.String(), port)
+                                                err = nil
+                                        }</span>
+                                }
+                        }
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (cli *Client) do(ctx context.Context, cmd socks5.CommandType, address string) (conn net.Conn, addr socks5.Addr, err error) <span class="cov8" title="1">{
+        if address, err = cli.resolve(ctx, address); err == nil </span><span class="cov8" title="1">{
+                if conn, err = cli.proxyDial(ctx, "tcp", cli.URL.Host); err == nil </span><span class="cov8" title="1">{
+                        conn, addr, err = cli.connect(ctx, conn, cmd, address)
+                }</span>
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (cli *Client) connect(ctx context.Context, proxyconn net.Conn, cmd socks5.CommandType, address string) (conn net.Conn, addr socks5.Addr, err error) <span class="cov8" title="1">{
+        if deadline, ok := ctx.Deadline(); ok &amp;&amp; !deadline.IsZero() </span><span class="cov8" title="1">{
+                _ = proxyconn.SetDeadline(deadline)
+                defer proxyconn.SetDeadline(time.Time{})
+        }</span>
+        <span class="cov8" title="1">if err = cli.connectAuth(proxyconn); err == nil </span><span class="cov8" title="1">{
+                err = socks5.ErrReplyCommandNotSupported
+                switch cmd </span>{
+                case socks5.CommandConnect:<span class="cov8" title="1">
+                        if addr, err = cli.connectCommand(proxyconn, socks5.CommandConnect, address); err == nil </span><span class="cov8" title="1">{
+                                conn = proxyconn
+                        }</span>
+                case socks5.CommandBind:<span class="cov8" title="1">
+                        if addr, err = cli.connectCommand(proxyconn, socks5.CommandBind, address); err == nil </span><span class="cov8" title="1">{
+                                conn = proxyconn
+                        }</span>
+                case socks5.CommandAssociate:<span class="cov8" title="1">
+                        if addr, err = cli.connectCommand(proxyconn, socks5.CommandAssociate, ":0"); err == nil </span><span class="cov8" title="1">{
+                                if conn, err = cli.proxyDial(ctx, "udp", addr.String()); err == nil </span><span class="cov8" title="1">{
+                                        if conn, err = NewUDPConn(conn, proxyconn, address); err == nil </span><span class="cov8" title="1">{
+                                                go func() </span><span class="cov8" title="1">{
+                                                        defer conn.Close()
+                                                        _, _ = io.Copy(io.Discard, proxyconn)
+                                                }</span>()
+                                        }
+                                }
+                        }
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (cli *Client) connectAuth(conn net.Conn) (err error) <span class="cov8" title="1">{
+        var auths []byte
+        auths = append(auths, byte(socks5.AuthMethodNone))
+        usr := cli.URL.User
+        if usr != nil </span><span class="cov8" title="1">{
+                auths = append(auths, byte(socks5.AuthUserPass))
+        }</span>
+
+        <span class="cov8" title="1">var b []byte
+        b = append(b, socks5.Socks5Version, byte(len(auths)))
+        b = append(b, auths...)
+
+        if _, err = conn.Write(b); err == nil </span><span class="cov8" title="1">{
+                var header [2]byte
+                if _, err = io.ReadFull(conn, header[:]); err == nil </span><span class="cov8" title="1">{
+                        if err = socks5.MustEqual(header[0], socks5.Socks5Version, socks5.ErrVersion); err == nil </span><span class="cov8" title="1">{
+                                err = socks5.ErrAuthMethodNotSupported
+                                switch authmethod := socks5.AuthMethod(header[1]); authmethod </span>{
+                                case socks5.AuthNoAcceptable:<span class="cov8" title="1">
+                                        err = socks5.ErrNoAcceptableAuthMethods</span>
+                                case socks5.AuthMethodNone:<span class="cov8" title="1">
+                                        err = nil</span>
+                                case socks5.AuthUserPass:<span class="cov8" title="1">
+                                        if usr != nil </span><span class="cov8" title="1">{
+                                                var b []byte
+                                                b = append(b, socks5.AuthUserPassVersion)
+                                                if b, err = socks5.AppendString(b, usr.Username(), socks5.ErrIllegalUsername); err == nil </span><span class="cov8" title="1">{
+                                                        pwd, _ := usr.Password()
+                                                        if b, err = socks5.AppendString(b, pwd, socks5.ErrIllegalPassword); err == nil </span><span class="cov8" title="1">{
+                                                                if _, err = conn.Write(b); err == nil </span><span class="cov8" title="1">{
+                                                                        if _, err = io.ReadFull(conn, header[:]); err == nil </span><span class="cov8" title="1">{
+                                                                                if err = socks5.MustEqual(header[0], socks5.AuthUserPassVersion, socks5.ErrBadSOCKSAuthVersion); err == nil </span><span class="cov8" title="1">{
+                                                                                        err = socks5.MustEqual(header[1], 0, socks5.ErrAuthFailed)
+                                                                                }</span>
+                                                                        }
+                                                                }
+                                                        }
+                                                }
+                                        }
+                                }
+                        }
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (cli *Client) connectCommand(conn net.Conn, cmd socks5.CommandType, address string) (proxyaddr socks5.Addr, err error) <span class="cov8" title="1">{
+        var addr socks5.Addr
+        if addr, err = socks5.AddrFromString(address); err == nil </span><span class="cov8" title="1">{
+                var b []byte
+                b = append(b, socks5.Socks5Version, byte(cmd), 0)
+                if b, err = addr.AppendBinary(b); err == nil </span><span class="cov8" title="1">{
+                        if _, err = conn.Write(b); err == nil </span><span class="cov8" title="1">{
+                                proxyaddr, err = cli.readReply(conn)
+                                err = socks5.Note(err, "connectCommand")
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (cli *Client) readReply(conn net.Conn) (addr socks5.Addr, err error) <span class="cov8" title="1">{
+        var header [3]byte
+        if _, err = io.ReadFull(conn, header[:]); err == nil </span><span class="cov8" title="1">{
+                if err = socks5.MustEqual(header[0], socks5.Socks5Version, socks5.ErrVersion); err == nil </span><span class="cov8" title="1">{
+                        replyCode := socks5.ReplyCode(header[1])
+                        if err = socks5.MustEqual(replyCode, socks5.ReplySuccess, replyCode.ToError()); err == nil </span><span class="cov8" title="1">{
+                                addr, err = socks5.ReadAddr(conn)
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (cli *Client) resolver() (hl socks5.HostLookuper) <span class="cov8" title="1">{
+        if hl = cli.HostLookuper; hl == nil </span><span class="cov8" title="1">{
+                hl = net.DefaultResolver
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func (cli *Client) proxyDial(ctx context.Context, network, address string) (conn net.Conn, err error) <span class="cov8" title="1">{
+        proxyDial := cli.ProxyDialer
+        if proxyDial == nil </span><span class="cov8" title="1">{
+                proxyDial = socks5.DefaultDialer
+        }</span>
+        <span class="cov8" title="1">return proxyDial.DialContext(ctx, network, address)</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package client
+
+import (
+        "context"
+        "net"
+        "sync"
+
+        "github.com/linkdata/socks5"
+)
+
+type listener struct {
+        cli   *Client
+        ctx   context.Context
+        addr  socks5.Addr   // address proxy server bound for listen
+        ready chan struct{} // semaphore to mark ready-for-new-accept
+        mu    sync.Mutex    // protects following
+        conn  net.Conn      // waiting BIND
+        err   error         // final error
+}
+
+var _ net.Listener = &amp;listener{}
+
+func (cli *Client) bindTCP(ctx context.Context, address string) (bnd *listener, err error) <span class="cov8" title="1">{
+        var conn net.Conn
+        var addr socks5.Addr
+        if conn, addr, err = cli.do(ctx, socks5.CommandBind, address); err == nil </span><span class="cov8" title="1">{
+                bnd = &amp;listener{
+                        cli:   cli,
+                        ctx:   ctx,
+                        ready: make(chan struct{}, 1),
+                        addr:  addr,
+                        conn:  conn,
+                }
+                bnd.ready &lt;- struct{}{}
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func (l *listener) startAccept() (conn net.Conn, addr socks5.Addr, err error) <span class="cov8" title="1">{
+        conn, addr, err = l.cli.do(l.ctx, socks5.CommandBind, l.addr.String())
+        return
+}</span>
+
+// Accept waits for and returns the next connection to the listener.
+func (l *listener) Accept() (conn net.Conn, err error) <span class="cov8" title="1">{
+        var currconn net.Conn
+        l.mu.Lock()
+        err = l.err
+        l.mu.Unlock()
+        if err == nil </span><span class="cov8" title="1">{
+                if _, ok := &lt;-l.ready; ok </span><span class="cov8" title="1">{
+                        l.mu.Lock()
+                        if err = l.err; err == nil </span><span class="cov8" title="1">{
+                                currconn = l.conn
+                        }</span>
+                        <span class="cov8" title="1">l.mu.Unlock()
+                        if currconn != nil </span><span class="cov8" title="1">{
+                                var addr socks5.Addr
+                                if addr, err = l.cli.readReply(currconn); err == nil </span><span class="cov8" title="1">{
+                                        conn = &amp;connect{Conn: currconn, remoteAddr: addr}
+                                }</span>
+                                <span class="cov8" title="1">l.mu.Lock()
+                                if l.err == nil </span><span class="cov8" title="1">{
+                                        l.conn, _, l.err = l.startAccept()
+                                        l.ready &lt;- struct{}{}
+                                }</span>
+                                <span class="cov8" title="1">l.mu.Unlock()</span>
+                        }
+                }
+        }
+        <span class="cov8" title="1">err = socks5.Note(err, "binding.Accept")
+        return</span>
+}
+
+// Close closes the listener.
+func (l *listener) Close() (err error) <span class="cov8" title="1">{
+        l.mu.Lock()
+        defer l.mu.Unlock()
+        if l.err == nil </span><span class="cov8" title="1">{
+                l.err = net.ErrClosed
+        }</span>
+        <span class="cov8" title="1">if l.conn != nil </span><span class="cov8" title="1">{
+                err = l.conn.Close()
+                l.conn = nil
+        }</span>
+        <span class="cov8" title="1">if l.ready != nil </span><span class="cov8" title="1">{
+                close(l.ready)
+                l.ready = nil
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+// Addr returns the listener's address and port on the proxy server.
+// If listening on the ANY address (0.0.0.0 or ::), it will return the proxy servers address instead of that.
+func (l *listener) Addr() net.Addr <span class="cov8" title="1">{
+        l.mu.Lock()
+        addr := l.addr
+        conn := l.conn
+        l.mu.Unlock()
+        if conn != nil </span><span class="cov8" title="1">{
+                addr.ReplaceAny(conn.RemoteAddr().String())
+        }</span>
+        <span class="cov8" title="1">return addr</span>
+}
+
+type connect struct {
+        net.Conn
+        remoteAddr net.Addr
+}
+
+func (c *connect) RemoteAddr() net.Addr <span class="cov8" title="1">{
+        return c.remoteAddr
+}</span>
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package client
+
+import (
+        "net"
+
+        "github.com/linkdata/socks5"
+)
+
+const maxUDPPrefixLength = 3 + 1 + 1 + 255 + 2 // hdr + addrType + strLen + domainName + port
+var _ net.PacketConn = &amp;UDPConn{}
+
+type UDPConn struct {
+        targetAddr net.Addr
+        tcpconn    net.Conn // TCP conn to client
+        net.Conn            // packet connection to the proxy server
+}
+
+type udpAddr struct {
+        net.Addr
+}
+
+func (ua udpAddr) Network() string <span class="cov8" title="1">{
+        return "udp"
+}</span>
+
+func NewUDPConn(raw, tcpconn net.Conn, address string) (c *UDPConn, err error) <span class="cov8" title="1">{
+        var addr socks5.Addr
+        if addr, err = socks5.AddrFromString(address); err == nil </span><span class="cov8" title="1">{
+                c = &amp;UDPConn{
+                        targetAddr: udpAddr{addr},
+                        tcpconn:    tcpconn,
+                        Conn:       raw,
+                }
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func (c *UDPConn) Close() (err error) <span class="cov8" title="1">{
+        err = socks5.JoinErrs(c.Conn.Close(), c.tcpconn.Close())
+        return
+}</span>
+
+func (c *UDPConn) ReadFrom(p []byte) (n int, netaddr net.Addr, err error) <span class="cov8" title="1">{
+        buf := make([]byte, len(p)+maxUDPPrefixLength)
+        if n, err = c.Conn.Read(buf); err == nil </span><span class="cov8" title="1">{
+                var pkt *socks5.UDPPacket
+                if pkt, err = socks5.ParseUDPPacket(buf[:n]); err == nil </span><span class="cov8" title="1">{
+                        n = copy(p, pkt.Body)
+                        netaddr = udpAddr{Addr: pkt.Addr}
+                }</span>
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (c *UDPConn) Read(b []byte) (n int, err error) <span class="cov8" title="1">{
+        for err == nil </span><span class="cov8" title="1">{
+                var netaddr net.Addr
+                n, netaddr, err = c.ReadFrom(b)
+                if netaddr.String() == c.targetAddr.String() </span><span class="cov8" title="1">{
+                        break</span>
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (c *UDPConn) writeTo(p []byte, addr socks5.Addr) (n int, err error) <span class="cov8" title="1">{
+        var buf []byte
+        buf = append(buf, 0, 0, 0) // udp prefix
+        if buf, err = addr.AppendBinary(buf); err == nil </span><span class="cov8" title="1">{
+                prefixlen := len(buf)
+                buf = append(buf, p...)
+                n, err = c.Conn.Write(buf)
+                n -= prefixlen
+                n = max(n, 0)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func (c *UDPConn) WriteTo(p []byte, netaddr net.Addr) (n int, err error) <span class="cov8" title="1">{
+        var addr socks5.Addr
+        if addr, err = socks5.AddrFromString(netaddr.String()); err == nil </span><span class="cov8" title="1">{
+                n, err = c.writeTo(p, addr)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func (c *UDPConn) Write(b []byte) (int, error) <span class="cov8" title="1">{
+        return c.WriteTo(b, c.targetAddr)
+}</span>
+
+func (c *UDPConn) RemoteAddr() net.Addr <span class="cov8" title="1">{
+        return c.targetAddr
+}</span>
+</pre>
+		
+		<pre class="file" id="file5" style="display: none">package socks5
+
+import "errors"
+
+var (
+        ErrUnsupportedNetwork      = errors.New("unsupported network")
+        ErrAuthMethodNotSupported  = errors.New("auth method not supported")
+        ErrIllegalUsername         = errors.New("illegal username")
+        ErrIllegalPassword         = errors.New("illegal password")
+        ErrVersion                 = errors.New("invalid SOCKS version")
+        ErrInvalidPortNumber       = errors.New("invalid port number")
+        ErrBadSOCKSAuthVersion     = errors.New("bad SOCKS auth version")
+        ErrAuthFailed              = errors.New("authentication failed")
+        ErrInvalidUDPPacket        = errors.New("invalid udp packet")
+        ErrFragmentedUDPPacket     = errors.New("fragmented udp packet")
+        ErrNoAcceptableAuthMethods = errors.New("no acceptable auth methods")
+        ErrUnsupportedScheme       = errors.New("unsupported scheme")
+)
+
+func JoinErrs(errs ...error) (err error) <span class="cov8" title="1">{
+        n := 0
+        for _, e := range errs </span><span class="cov8" title="1">{
+                if e != nil </span><span class="cov8" title="1">{
+                        err = e
+                        n++
+                }</span>
+        }
+        <span class="cov8" title="1">if n &gt; 1 </span><span class="cov8" title="1">{
+                err = errors.Join(errs...)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file6" style="display: none">package socks5
+
+// MustEqual returns nil if a == b, otherwise it returns err.
+func MustEqual[T comparable](a, b T, err error) error <span class="cov8" title="1">{
+        if a == b </span><span class="cov8" title="1">{
+                return nil
+        }</span>
+        <span class="cov8" title="1">return err</span>
+}
+</pre>
+		
+		<pre class="file" id="file7" style="display: none">package socks5
+
+type errNote struct {
+        err error
+        txt string
+}
+
+func (te errNote) Error() string <span class="cov8" title="1">{
+        return te.txt + ": " + te.err.Error()
+}</span>
+
+func (te errNote) Unwrap() error <span class="cov8" title="1">{
+        return te.err
+}</span>
+
+// Note returns nil if err is nil, otherwise returns err prefixed with txt, a colon and a space.
+func Note(err error, txt string) error <span class="cov8" title="1">{
+        if err != nil </span><span class="cov8" title="1">{
+                err = errNote{err: err, txt: txt}
+        }</span>
+        <span class="cov8" title="1">return err</span>
+}
+</pre>
+		
+		<pre class="file" id="file8" style="display: none">package socks5
+
+import (
+        "fmt"
+)
+
+// ReplyCode is the reply code in SOCKS5 packets sent from the server to a client.
+type ReplyCode byte
+
+const (
+        ReplySuccess              ReplyCode = 0
+        ReplyGeneralFailure       ReplyCode = 1
+        ReplyConnectionNotAllowed ReplyCode = 2
+        ReplyNetworkUnreachable   ReplyCode = 3
+        ReplyHostUnreachable      ReplyCode = 4
+        ReplyConnectionRefused    ReplyCode = 5
+        ReplyTTLExpired           ReplyCode = 6
+        ReplyCommandNotSupported  ReplyCode = 7
+        ReplyAddrTypeNotSupported ReplyCode = 8
+)
+
+var replyCodeError = map[ReplyCode]error{
+        ReplySuccess:              nil,
+        ReplyGeneralFailure:       ErrReplyGeneralFailure,
+        ReplyConnectionNotAllowed: ErrReplyConnectionNotAllowed,
+        ReplyNetworkUnreachable:   ErrReplyNetworkUnreachable,
+        ReplyHostUnreachable:      ErrReplyHostUnreachable,
+        ReplyConnectionRefused:    ErrReplyConnectionRefused,
+        ReplyTTLExpired:           ErrReplyTTLExpired,
+        ReplyCommandNotSupported:  ErrReplyCommandNotSupported,
+        ReplyAddrTypeNotSupported: ErrReplyAddrTypeNotSupported,
+}
+
+func (code ReplyCode) ToError() error <span class="cov8" title="1">{
+        if err, ok := replyCodeError[code]; ok </span><span class="cov8" title="1">{
+                return err
+        }</span>
+        <span class="cov8" title="1">return fmt.Errorf("socks5code(%v)", code)</span>
+}
+</pre>
+		
+		<pre class="file" id="file9" style="display: none">package socks5
+
+import "fmt"
+
+type ReplyError struct {
+        ReplyCode
+}
+
+var replyErrorText = []string{
+        ReplySuccess:              "success",
+        ReplyGeneralFailure:       "general failure",
+        ReplyConnectionNotAllowed: "connection not allowed",
+        ReplyNetworkUnreachable:   "network unreachable",
+        ReplyHostUnreachable:      "host unreachable",
+        ReplyConnectionRefused:    "connection refused",
+        ReplyTTLExpired:           "ttl expired",
+        ReplyCommandNotSupported:  "command not supported",
+        ReplyAddrTypeNotSupported: "address type not supported",
+}
+
+var (
+        ErrReply                     = ReplyError{ReplyGeneralFailure} // for testing against with errors.Is()
+        ErrReplySuccess              = ReplyError{ReplySuccess}
+        ErrReplyGeneralFailure       = ReplyError{ReplyGeneralFailure}
+        ErrReplyConnectionNotAllowed = ReplyError{ReplyConnectionNotAllowed}
+        ErrReplyNetworkUnreachable   = ReplyError{ReplyNetworkUnreachable}
+        ErrReplyHostUnreachable      = ReplyError{ReplyHostUnreachable}
+        ErrReplyConnectionRefused    = ReplyError{ReplyConnectionRefused}
+        ErrReplyTTLExpired           = ReplyError{ReplyTTLExpired}
+        ErrReplyCommandNotSupported  = ReplyError{ReplyCommandNotSupported}
+        ErrReplyAddrTypeNotSupported = ReplyError{ReplyAddrTypeNotSupported}
+)
+
+func (re ReplyError) Error() string <span class="cov8" title="1">{
+        if int(re.ReplyCode) &lt; len(replyErrorText) </span><span class="cov8" title="1">{
+                return replyErrorText[re.ReplyCode]
+        }</span>
+        <span class="cov8" title="1">return fmt.Sprintf("socks5code(%v)", re.ReplyCode)</span>
+}
+
+func (re ReplyError) Is(target error) (yes bool) <span class="cov8" title="1">{
+        return target == ErrReply
+}</span>
+</pre>
+		
+		<pre class="file" id="file10" style="display: none">package server
+
+import (
+        "io"
+
+        "github.com/linkdata/socks5"
+)
+
+// Authenticator provide authentication of users.
+type Authenticator interface {
+        // Socks5Authenticate provide authentication of users. Return socks5.ErrAuthMethodNotSupported if the method is
+        // not supported by the authenticator. For non-anonymous methods, the returned username must not be the
+        // empty string.
+        Socks5Authenticate(rw io.ReadWriter, am socks5.AuthMethod, address string) (username string, err error)
+}
+
+// NoAuthAuthenticator is used to handle the "No Authentication" mode
+type NoAuthAuthenticator struct{}
+
+func (a NoAuthAuthenticator) Socks5Authenticate(rw io.ReadWriter, am socks5.AuthMethod, _ string) (username string, err error) <span class="cov8" title="1">{
+        err = socks5.ErrAuthMethodNotSupported
+        if am == socks5.AuthMethodNone </span><span class="cov8" title="1">{
+                _, err = rw.Write([]byte{socks5.Socks5Version, byte(am)})
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+// UserPassAuthenticator is used to handle username/password based authentication.
+type UserPassAuthenticator struct {
+        Credentials CredentialsValidator
+}
+
+func (a UserPassAuthenticator) Socks5Authenticate(rw io.ReadWriter, am socks5.AuthMethod, address string) (username string, err error) <span class="cov8" title="1">{
+        err = socks5.ErrAuthMethodNotSupported
+        if am == socks5.AuthUserPass </span><span class="cov8" title="1">{
+                resultcode := byte(socks5.AuthFailure)
+                if _, err = rw.Write([]byte{socks5.Socks5Version, byte(am)}); err == nil </span><span class="cov8" title="1">{
+                        var hdr [2]byte
+                        if _, err = io.ReadFull(rw, hdr[:]); err == nil </span><span class="cov8" title="1">{
+                                if err = socks5.MustEqual(hdr[0], socks5.AuthUserPassVersion, socks5.ErrBadSOCKSAuthVersion); err == nil </span><span class="cov8" title="1">{
+                                        usrLen := int(hdr[1])
+                                        usrBytes := make([]byte, usrLen)
+                                        if _, err = io.ReadFull(rw, usrBytes); err == nil </span><span class="cov8" title="1">{
+                                                var hdrPwd [1]byte
+                                                if _, err = io.ReadFull(rw, hdrPwd[:]); err == nil </span><span class="cov8" title="1">{
+                                                        pwdLen := int(hdrPwd[0])
+                                                        pwdBytes := make([]byte, pwdLen)
+                                                        if _, err = io.ReadFull(rw, pwdBytes); err == nil </span><span class="cov8" title="1">{
+                                                                usr := string(usrBytes)
+                                                                err = socks5.ErrAuthFailed
+                                                                if a.Credentials.ValidateCredentials(usr, string(pwdBytes), address) </span><span class="cov8" title="1">{
+                                                                        err = nil
+                                                                        resultcode = socks5.AuthSuccess
+                                                                        username = usr
+                                                                }</span>
+                                                        }
+                                                }
+                                        }
+                                }
+                        }
+                }
+                <span class="cov8" title="1">_, e := rw.Write([]byte{socks5.AuthUserPassVersion, resultcode})
+                err = socks5.JoinErrs(err, e)</span>
+        }
+        <span class="cov8" title="1">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file11" style="display: none">package server
+
+// CredentialsValidator is used to support user/pass authentication optional network address filtering.
+type CredentialsValidator interface {
+        ValidateCredentials(username, password, address string) bool
+}
+
+// StaticCredentials enables using a map directly as a credential store
+type StaticCredentials map[string]string
+
+func (s StaticCredentials) ValidateCredentials(username, password, _ string) bool <span class="cov8" title="1">{
+        pass, ok := s[username]
+        return ok &amp;&amp; password == pass
+}</span>
+</pre>
+		
+		<pre class="file" id="file12" style="display: none">package server
+
+import (
+        "context"
+        "errors"
+        "io"
+        "math"
+        "net"
+        "sync/atomic"
+        "time"
+
+        "github.com/linkdata/socks5"
+)
+
+const (
+        maxUdpPacket = math.MaxUint16 - 28
+)
+
+func (sess *session) handleASSOCIATE(ctx context.Context) (err error) <span class="cov8" title="1">{
+        var host string
+        if host, _, err = net.SplitHostPort(sess.conn.LocalAddr().String()); err == nil </span><span class="cov8" title="1">{
+                var clientUDPConn net.PacketConn
+                if clientUDPConn, err = net.ListenPacket("udp", net.JoinHostPort(host, "0")); err == nil </span><span class="cov8" title="1">{
+                        defer clientUDPConn.Close()
+                        var bindAddr string
+                        var bindPort uint16
+                        if bindAddr, bindPort, err = socks5.SplitHostPort(clientUDPConn.LocalAddr().String()); err == nil </span><span class="cov8" title="1">{
+                                res := &amp;Response{
+                                        Reply: socks5.ReplySuccess,
+                                        Addr:  socks5.AddrFromHostPort(bindAddr, bindPort),
+                                }
+                                var buf []byte
+                                if buf, err = res.MarshalBinary(); err == nil </span><span class="cov8" title="1">{
+                                        if _, err = sess.conn.Write(buf); err == nil </span><span class="cov8" title="1">{
+                                                _ = sess.Debug &amp;&amp; sess.LogDebug("ASSOCIATE", "session", sess.conn.RemoteAddr(), "address", res.Addr)
+                                                err = sess.serveUDP(ctx, sess.conn, clientUDPConn)
+                                        }</span>
+                                }
+                        }
+                }
+        }
+        <span class="cov8" title="1">sess.maybeLogError(err, "ASSOCIATE", "session", sess.conn.RemoteAddr())
+        return sess.fail(err)</span>
+}
+
+func (sess *session) serveUDP(ctx context.Context, clientTCPConn net.Conn, clientUDPConn net.PacketConn) (err error) <span class="cov8" title="1">{
+        var tcpClosed atomic.Bool
+        go func() </span><span class="cov8" title="1">{
+                _, _ = io.Copy(io.Discard, clientTCPConn)
+                tcpClosed.Store(true)
+                _ = clientUDPConn.Close()
+        }</span>()
+
+        <span class="cov8" title="1">udpServicers := map[socks5.Addr]*udpService{}
+
+        defer func() </span><span class="cov8" title="1">{
+                for _, svc := range udpServicers </span><span class="cov8" title="1">{
+                        _ = svc.target.Close()
+                }</span>
+        }()
+
+        <span class="cov8" title="1">var clientNetAddr net.Addr
+        var clientAddress string
+        var buf [maxUdpPacket]byte
+
+        started := time.Now()
+        err = clientUDPConn.SetReadDeadline(started.Add(UDPTimeout / 10))
+
+        for err == nil </span><span class="cov8" title="1">{
+                var n int
+                var addr net.Addr
+                if n, addr, err = clientUDPConn.ReadFrom(buf[:]); err == nil </span><span class="cov8" title="1">{
+                        gotAddr := addr.String()
+                        if clientNetAddr == nil </span><span class="cov8" title="1">{
+                                clientNetAddr = addr
+                                clientAddress = gotAddr
+                        }</span>
+                        <span class="cov8" title="1">if clientAddress == gotAddr </span><span class="cov8" title="1">{
+                                var pkt *socks5.UDPPacket
+                                if pkt, err = socks5.ParseUDPPacket(buf[:n]); err == nil </span><span class="cov8" title="1">{
+                                        var svc *udpService
+                                        if svc = udpServicers[pkt.Addr]; svc == nil </span><span class="cov8" title="1">{
+                                                var targetConn net.Conn
+                                                if targetConn, err = sess.DialContext(ctx, "udp", pkt.Addr.String()); err == nil </span><span class="cov8" title="1">{
+                                                        svc = &amp;udpService{
+                                                                srv:        sess.Server,
+                                                                started:    started,
+                                                                client:     clientUDPConn,
+                                                                clientaddr: clientNetAddr,
+                                                                target:     targetConn,
+                                                                targetaddr: pkt.Addr,
+                                                        }
+                                                        udpServicers[pkt.Addr] = svc
+                                                        go svc.serve()
+                                                }</span>
+                                        }
+                                        <span class="cov8" title="1">if svc != nil </span><span class="cov8" title="1">{
+                                                var nn int
+                                                if nn, err = svc.target.Write(pkt.Body); err == nil </span><span class="cov8" title="1">{
+                                                        if err = socks5.MustEqual(nn, len(pkt.Body), io.ErrShortWrite); err == nil </span><span class="cov8" title="1">{
+                                                                svc.when.Store(int64(time.Since(started)))
+                                                        }</span>
+                                                }
+                                        }
+                                }
+                        }
+                } else<span class="cov8" title="1"> if isTimeout(err) </span><span class="cov8" title="1">{
+                        timeout := int64((time.Since(started) - UDPTimeout))
+                        for _, svc := range udpServicers </span><span class="cov8" title="1">{
+                                if when := svc.when.Load(); when &lt; timeout </span><span class="cov8" title="1">{
+                                        _ = svc.target.Close()
+                                        delete(udpServicers, svc.targetaddr)
+                                }</span>
+                        }
+                        <span class="cov8" title="1">err = clientUDPConn.SetReadDeadline(time.Now().Add(UDPTimeout / 10))</span>
+                }
+        }
+
+        <span class="cov8" title="1">if tcpClosed.Load() </span><span class="cov8" title="1">{
+                err = nil
+        }</span>
+
+        <span class="cov8" title="1">return</span>
+}
+
+func isTimeout(err error) bool <span class="cov8" title="1">{
+        terr, ok := errors.Unwrap(err).(interface{ Timeout() bool })
+        return ok &amp;&amp; terr.Timeout()
+}</span>
+
+type udpService struct {
+        srv        *Server
+        started    time.Time
+        client     net.PacketConn
+        clientaddr net.Addr
+        target     net.Conn
+        targetaddr socks5.Addr
+        when       atomic.Int64
+}
+
+func (svc *udpService) serve() <span class="cov8" title="1">{
+        defer svc.target.Close()
+        err := socks5.ErrUnsupportedNetwork
+        pktconn, ok := svc.target.(net.PacketConn)
+        if ok </span><span class="cov8" title="1">{
+                var buf [maxUdpPacket]byte
+                err = nil
+                for err == nil </span><span class="cov8" title="1">{
+                        var n int
+                        var srcnetaddr net.Addr
+                        if n, srcnetaddr, err = pktconn.ReadFrom(buf[:]); err == nil </span><span class="cov8" title="1">{
+                                var srcaddr socks5.Addr
+                                if srcaddr, err = socks5.AddrFromString(srcnetaddr.String()); err == nil </span><span class="cov8" title="1">{
+                                        var b []byte
+                                        if b, err = (&amp;socks5.UDPPacket{Addr: srcaddr, Body: buf[:n]}).MarshalBinary(); err == nil </span><span class="cov8" title="1">{
+                                                var nn int
+                                                if nn, err = svc.client.WriteTo(b, svc.clientaddr); err == nil </span><span class="cov8" title="1">{
+                                                        if err = socks5.MustEqual(nn, len(b), io.ErrShortWrite); err == nil </span><span class="cov8" title="1">{
+                                                                svc.when.Store(int64(time.Since(svc.started)))
+                                                        }</span>
+                                                }
+                                        }
+                                }
+                        }
+                }
+        }
+        <span class="cov8" title="1">svc.srv.LogError("udpService.serve()", "error", err, "client", svc.client.LocalAddr().String(), "target", svc.target.RemoteAddr().String(), "targetaddr", svc.targetaddr.String())</span>
+}
+</pre>
+		
+		<pre class="file" id="file13" style="display: none">package server
+
+import (
+        "context"
+        "io"
+        "net"
+
+        "github.com/linkdata/socks5"
+)
+
+func sendReply(w io.Writer, resp socks5.ReplyCode, addr socks5.Addr) (err error) <span class="cov8" title="1">{
+        var b []byte
+        b = append(b, socks5.Socks5Version, byte(resp), 0)
+        if b, err = addr.AppendBinary(b); err == nil </span><span class="cov8" title="1">{
+                _, err = w.Write(b)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func (sess *session) handleBIND(ctx context.Context, bindaddr string) (err error) <span class="cov8" title="1">{
+        var listener net.Listener
+        _ = sess.Debug &amp;&amp; sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "bindaddr", bindaddr)
+        if listener, err = sess.getListener(ctx, sess.conn, bindaddr); err == nil </span><span class="cov8" title="1">{
+                defer listener.Close()
+                var addr socks5.Addr
+                if addr, err = socks5.AddrFromString(listener.Addr().String()); err == nil </span><span class="cov8" title="1">{
+                        if err = sendReply(sess.conn, socks5.ReplySuccess, addr); err == nil </span><span class="cov8" title="1">{
+                                _ = sess.Debug &amp;&amp; sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "listen", addr)
+                                var conn net.Conn
+                                if conn, err = listener.Accept(); err == nil </span><span class="cov8" title="1">{
+                                        defer conn.Close()
+                                        var remoteAddr socks5.Addr
+                                        if remoteAddr, err = socks5.AddrFromString(conn.RemoteAddr().String()); err == nil </span><span class="cov8" title="1">{
+                                                _ = sess.Debug &amp;&amp; sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "remote-bound", remoteAddr)
+                                                if err = sendReply(sess.conn, socks5.ReplySuccess, remoteAddr); err == nil </span><span class="cov8" title="1">{
+                                                        _ = sess.Debug &amp;&amp; sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "remote-start", remoteAddr)
+                                                        ctx, cancel := context.WithCancel(ctx)
+                                                        go func() </span><span class="cov8" title="1">{
+                                                                _, _ = io.Copy(sess.conn, conn)
+                                                                cancel()
+                                                        }</span>()
+                                                        <span class="cov8" title="1">go func() </span><span class="cov8" title="1">{
+                                                                _, _ = io.Copy(conn, sess.conn)
+                                                                cancel()
+                                                        }</span>()
+                                                        <span class="cov8" title="1">&lt;-ctx.Done()
+                                                        _ = sess.Debug &amp;&amp; sess.LogDebug("BIND", "session", sess.conn.RemoteAddr(), "remote-stop", remoteAddr)
+                                                        return</span>
+                                                }
+                                        }
+                                }
+                        }
+                }
+        }
+        <span class="cov8" title="1">sess.maybeLogError(err, "BIND", "session", sess.conn.RemoteAddr(), "adress", bindaddr)
+        _ = sendReply(sess.conn, socks5.ReplyGeneralFailure, socks5.ZeroAddr)
+        return</span>
+}
+</pre>
+		
+		<pre class="file" id="file14" style="display: none">package server
+
+import (
+        "context"
+        "io"
+        "net"
+        "time"
+
+        "github.com/linkdata/socks5"
+)
+
+func (sess *session) handleCONNECT(ctx context.Context, addr string) (err error) <span class="cov8" title="1">{
+        _ = sess.Debug &amp;&amp; sess.LogDebug("CONNECT", "session", sess.conn.RemoteAddr(), "target", addr)
+
+        ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+        defer cancel()
+
+        var srv net.Conn
+        if srv, err = sess.DialContext(ctx, "tcp", addr); err == nil </span><span class="cov8" title="1">{
+                defer srv.Close()
+                localAddr := srv.LocalAddr().String()
+                var serverAddr string
+                var serverPort uint16
+                if serverAddr, serverPort, err = socks5.SplitHostPort(localAddr); err == nil </span><span class="cov8" title="1">{
+                        res := &amp;Response{
+                                Reply: socks5.ReplySuccess,
+                                Addr:  socks5.AddrFromHostPort(serverAddr, serverPort),
+                        }
+                        var buf []byte
+                        if buf, err = res.MarshalBinary(); err == nil </span><span class="cov8" title="1">{
+                                if _, err = sess.conn.Write(buf); err == nil </span><span class="cov8" title="1">{
+                                        errc := make(chan error, 2)
+                                        go func() </span><span class="cov8" title="1">{
+                                                _, err := io.Copy(sess.conn, srv)
+                                                errc &lt;- socks5.Note(err, "from backend to client")
+                                        }</span>()
+                                        <span class="cov8" title="1">go func() </span><span class="cov8" title="1">{
+                                                _, err := io.Copy(srv, sess.conn)
+                                                errc &lt;- socks5.Note(err, "from client to backend")
+                                        }</span>()
+                                        <span class="cov8" title="1">return &lt;-errc</span>
+                                }
+                        }
+                }
+        }
+        <span class="cov8" title="1">sess.maybeLogError(err, "CONNECT", "session", sess.conn.RemoteAddr(), "adress", addr)
+        return sess.fail(err)</span>
+}
+</pre>
+		
+		<pre class="file" id="file15" style="display: none">package server
+
+import (
+        "net"
+        "sync/atomic"
+        "time"
+)
+
+type listener struct {
+        srv *Server
+        key string
+        net.Listener
+        refs atomic.Int32
+        died atomic.Int64
+}
+
+func (l *listener) Close() (err error) <span class="cov8" title="1">{
+        if refs := l.refs.Add(-1); refs &lt; 1 </span><span class="cov8" title="1">{
+                died := int64(time.Since(l.srv.started))
+                l.died.Store(died)
+                _ = l.srv.Debug &amp;&amp; l.srv.LogDebug("listener deref", "key", l.key, "refs", refs, "died", died)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+type listenerproxy struct {
+        *listener
+        closed atomic.Bool
+}
+
+func (l *listenerproxy) Close() (err error) <span class="cov8" title="1">{
+        if !l.closed.Swap(true) </span><span class="cov8" title="1">{
+                err = l.listener.Close()
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file16" style="display: none">package server
+
+import (
+        "io"
+
+        "github.com/linkdata/socks5"
+)
+
+// Request is the request packet
+type Request struct {
+        Addr socks5.Addr
+        Cmd  socks5.CommandType
+}
+
+// ReadRequest read request packet from client
+func ReadRequest(r io.Reader) (req *Request, err error) <span class="cov8" title="1">{
+        bb := make([]byte, 3)
+        if _, err = io.ReadFull(r, bb); err == nil </span><span class="cov8" title="1">{
+                if err = socks5.MustEqual(bb[0], socks5.Socks5Version, socks5.ErrVersion); err == nil </span><span class="cov8" title="1">{
+                        var addr socks5.Addr
+                        if addr, err = socks5.ReadAddr(r); err == nil </span><span class="cov8" title="1">{
+                                req = &amp;Request{
+                                        Addr: addr,
+                                        Cmd:  socks5.CommandType(bb[1]),
+                                }
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file17" style="display: none">package server
+
+import "github.com/linkdata/socks5"
+
+// Response contains the contents of
+// a Response packet sent from the proxy
+// to the client.
+type Response struct {
+        Addr  socks5.Addr
+        Reply socks5.ReplyCode
+}
+
+// MarshalBinary converts a Response struct into a packet.
+func (res *Response) MarshalBinary() (pkt []byte, err error) <span class="cov8" title="1">{
+        pkt = append(pkt, socks5.Socks5Version, byte(res.Reply), 0)
+        pkt, err = res.Addr.AppendBinary(pkt)
+        return
+}</span>
+</pre>
+		
+		<pre class="file" id="file18" style="display: none">package server
+
+import (
+        "context"
+        "io"
+        "net"
+        "sync"
+        "time"
+
+        "github.com/linkdata/socks5"
+)
+
+// Server is a SOCKS5 proxy server.
+type Server struct {
+        // List of authentication providers. If nil, uses NoAuthAuthenticator.
+        // Order matters; they are tried in the given order.
+        Authenticators []Authenticator
+
+        // DialerSelector is called to get the ContextDialer to use for an outgoing connection.
+        // If nil, socks5.DefaultDialer will be used, which if not changed is a net.Dialer.
+        DialerSelector
+
+        Logger socks5.Logger // If not nil, use this Logger (compatible with log/slog)
+        Debug  bool          // If true, output debug logging using Logger.Info
+
+        mu        sync.Mutex // protects following
+        serving   int
+        listeners map[string]*listener
+        started   time.Time // time when Server.Serve() was called
+}
+
+var (
+        // UDPTimeout is how long before we stop listening on UDP sockets opened in support of an ASSOCIATE command.
+        UDPTimeout = time.Second * 10
+
+        // ListenerTimeout is how long to keep a BIND socket open after the client is done with it.
+        ListenerTimeout = time.Second * 1
+)
+
+func listenKey(client net.Conn, address string) (key string) <span class="cov8" title="1">{
+        if host, port, err := net.SplitHostPort(address); err == nil </span><span class="cov8" title="1">{
+                if port != "0" </span><span class="cov8" title="1">{
+                        if host == "0.0.0.0" || host == "::" </span><span class="cov8" title="1">{
+                                host = ""
+                        }</span>
+                        <span class="cov8" title="1">if clienthost, _, err := net.SplitHostPort(client.RemoteAddr().String()); err == nil </span><span class="cov8" title="1">{
+                                key = net.JoinHostPort(host, port) + "@" + clienthost
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (s *Server) getListener(ctx context.Context, client net.Conn, bindaddress string) (nl net.Listener, err error) <span class="cov8" title="1">{
+        err = net.ErrClosed
+        if s.Serving() &gt; 0 </span><span class="cov8" title="1">{
+                err = nil
+                key := listenKey(client, bindaddress)
+                var lc net.ListenConfig
+                var newlistener net.Listener
+                if key == "" </span><span class="cov8" title="1">{
+                        if newlistener, err = lc.Listen(ctx, "tcp", bindaddress); err == nil </span><span class="cov8" title="1">{
+                                bindaddress = newlistener.Addr().String()
+                                key = listenKey(client, bindaddress)
+                        }</span>
+                }
+                <span class="cov8" title="1">if err == nil </span><span class="cov8" title="1">{
+                        s.mu.Lock()
+                        defer s.mu.Unlock()
+                        l := s.listeners[key]
+                        if l == nil </span><span class="cov8" title="1">{
+                                if newlistener == nil </span><span class="cov8" title="1">{
+                                        newlistener, err = lc.Listen(ctx, "tcp", bindaddress)
+                                }</span>
+                                <span class="cov8" title="1">if err == nil </span><span class="cov8" title="1">{
+                                        l = &amp;listener{
+                                                srv:      s,
+                                                key:      key,
+                                                Listener: newlistener,
+                                        }
+                                        s.listeners[key] = l
+                                        _ = s.Debug &amp;&amp; s.LogDebug("listener open", "key", key)
+                                }</span>
+                        }
+                        <span class="cov8" title="1">if l != nil </span><span class="cov8" title="1">{
+                                refs := l.refs.Add(1)
+                                nl = &amp;listenerproxy{listener: l}
+                                _ = s.Debug &amp;&amp; s.LogDebug("listener addref", "key", key, "refs", refs)
+                        }</span>
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (s *Server) LogDebug(msg string, keyvaluepairs ...any) bool <span class="cov8" title="1">{
+        if s.Debug &amp;&amp; s.Logger != nil </span><span class="cov8" title="1">{
+                s.Logger.Info(socks5.LogPrefix+msg, keyvaluepairs...)
+        }</span>
+        <span class="cov8" title="1">return true</span>
+}
+
+func (s *Server) LogInfo(msg string, keyvaluepairs ...any) <span class="cov8" title="1">{
+        if s.Logger != nil </span><span class="cov8" title="1">{
+                s.Logger.Info(socks5.LogPrefix+msg, keyvaluepairs...)
+        }</span>
+}
+
+func (s *Server) LogError(msg string, keyvaluepairs ...any) <span class="cov8" title="1">{
+        if s.Logger != nil </span><span class="cov8" title="1">{
+                s.Logger.Error(socks5.LogPrefix+msg, keyvaluepairs...)
+        }</span>
+}
+
+func (s *Server) maybeLogError(err error, msg string, keyvaluepairs ...any) <span class="cov8" title="1">{
+        if err != nil &amp;&amp; s.Logger != nil </span><span class="cov8" title="1">{
+                keyvaluepairs = append(keyvaluepairs, "error", err)
+                s.Logger.Error(socks5.LogPrefix+msg, keyvaluepairs...)
+        }</span>
+}
+
+func (s *Server) close() <span class="cov8" title="1">{
+        s.mu.Lock()
+        defer s.mu.Unlock()
+        s.serving--
+        if s.serving &lt; 1 </span><span class="cov8" title="1">{
+                for _, l := range s.listeners </span><span class="cov8" title="1">{
+                        _ = s.Debug &amp;&amp; s.LogDebug("Server.close(): listener stop", "address", l.key)
+                        l.refs.Store(0)
+                        _ = l.Listener.Close()
+                }</span>
+                <span class="cov8" title="1">clear(s.listeners)</span>
+        }
+}
+
+// Serving returns the number of active calls to Serve()
+func (s *Server) Serving() (n int) <span class="cov8" title="1">{
+        s.mu.Lock()
+        n = s.serving
+        s.mu.Unlock()
+        return
+}</span>
+
+// Serve accepts and handles incoming connections on the given listener.
+func (s *Server) Serve(ctx context.Context, l net.Listener) (err error) <span class="cov8" title="1">{
+        defer s.close()
+        s.mu.Lock()
+        s.serving++
+        if s.listeners == nil </span><span class="cov8" title="1">{
+                s.listeners = make(map[string]*listener)
+                s.started = time.Now()
+        }</span>
+        <span class="cov8" title="1">s.mu.Unlock()
+        errchan := make(chan error, 1)
+        s.LogInfo("listening", "address", l.Addr())
+        go s.listenerMaintenance(ctx)
+        go s.listen(ctx, errchan, l)
+        select </span>{
+        case &lt;-ctx.Done():<span class="cov8" title="1"></span>
+        case err = &lt;-errchan:<span class="cov8" title="1"></span>
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (s *Server) listenerCleanup() <span class="cov8" title="1">{
+        s.mu.Lock()
+        defer s.mu.Unlock()
+        deadline := int64(time.Since(s.started) - ListenerTimeout)
+        for k, l := range s.listeners </span><span class="cov8" title="1">{
+                if refs := l.refs.Load(); refs &lt; 1 </span><span class="cov8" title="1">{
+                        if died := l.died.Load(); died &lt; deadline </span><span class="cov8" title="1">{
+                                delete(s.listeners, k)
+                                _ = l.Listener.Close()
+                                _ = s.Debug &amp;&amp; s.LogDebug("listener closed", "key", k, "refs", refs, "died", died)
+                        }</span>
+                }
+        }
+}
+
+func (s *Server) listenerMaintenance(ctx context.Context) <span class="cov8" title="1">{
+        tmr := time.NewTicker(ListenerTimeout)
+        defer tmr.Stop()
+        for </span><span class="cov8" title="1">{
+                select </span>{
+                case &lt;-ctx.Done():<span class="cov8" title="1">
+                        return</span>
+                case &lt;-tmr.C:<span class="cov8" title="1">
+                        s.listenerCleanup()</span>
+                }
+        }
+}
+
+func (s *Server) listen(ctx context.Context, errchan chan&lt;- error, l net.Listener) <span class="cov8" title="1">{
+        defer close(errchan)
+        var err error
+        for err == nil </span><span class="cov8" title="1">{
+                var clientConn net.Conn
+                if clientConn, err = l.Accept(); err == nil </span><span class="cov8" title="1">{
+                        go s.startConn(ctx, clientConn)
+                }</span>
+        }
+        <span class="cov8" title="1">errchan &lt;- err</span>
+}
+
+func (s *Server) startConn(ctx context.Context, clientConn net.Conn) <span class="cov8" title="1">{
+        defer clientConn.Close()
+        _ = s.Debug &amp;&amp; s.LogDebug("session start", "session", clientConn.RemoteAddr())
+        conn := &amp;session{conn: clientConn, Server: s}
+        err := conn.serve(ctx)
+        _ = s.Debug &amp;&amp; s.LogDebug("session stop", "session", clientConn.RemoteAddr(), "err", err)
+}</span>
+
+func readClientGreeting(r io.Reader) (authMethods []socks5.AuthMethod, err error) <span class="cov8" title="1">{
+        var hdr [2]byte
+        if _, err = io.ReadFull(r, hdr[:]); err == nil </span><span class="cov8" title="1">{
+                if err = socks5.MustEqual(hdr[0], socks5.Socks5Version, socks5.ErrVersion); err == nil </span><span class="cov8" title="1">{
+                        count := int(hdr[1])
+                        methods := make([]byte, count)
+                        if _, err = io.ReadFull(r, methods); err == nil </span><span class="cov8" title="1">{
+                                for _, m := range methods </span><span class="cov8" title="1">{
+                                        authMethods = append(authMethods, socks5.AuthMethod(m))
+                                }</span>
+                        }
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file19" style="display: none">package server
+
+import (
+        "context"
+        "net"
+
+        "github.com/linkdata/socks5"
+)
+
+type session struct {
+        *Server           // server we belong to
+        conn     net.Conn // client session connection
+        username string   // username, empty string if anonymous (AuthMethodNone)
+}
+
+func (sess *session) DialContext(ctx context.Context, network, addr string) (conn net.Conn, err error) <span class="cov8" title="1">{
+        var dialer socks5.ContextDialer
+        if sess.Server.DialerSelector != nil </span><span class="cov8" title="1">{
+                dialer, err = sess.Server.DialerSelector.SelectDialer(sess.username, network, addr)
+        }</span>
+        <span class="cov8" title="1">if err == nil </span><span class="cov8" title="1">{
+                if dialer == nil </span><span class="cov8" title="1">{
+                        dialer = socks5.DefaultDialer
+                }</span>
+                <span class="cov8" title="1">conn, err = dialer.DialContext(ctx, network, addr)</span>
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (sess *session) serve(ctx context.Context) (err error) <span class="cov8" title="1">{
+        if sess.username, err = sess.authenticate(); err == nil </span><span class="cov8" title="1">{
+                err = sess.handleRequest(ctx)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func (sess *session) authenticate() (username string, err error) <span class="cov8" title="1">{
+        var clientAuthMethods []socks5.AuthMethod
+        if clientAuthMethods, err = readClientGreeting(sess.conn); err == nil </span><span class="cov8" title="1">{
+                err = socks5.ErrNoAcceptableAuthMethods
+                authenticators := sess.Authenticators
+                if authenticators == nil </span><span class="cov8" title="1">{
+                        authenticators = []Authenticator{NoAuthAuthenticator{}}
+                }</span>
+                <span class="cov8" title="1">for _, auther := range authenticators </span><span class="cov8" title="1">{
+                        for _, clientAuth := range clientAuthMethods </span><span class="cov8" title="1">{
+                                if s, e := auther.Socks5Authenticate(sess.conn, clientAuth, sess.conn.RemoteAddr().String()); e != socks5.ErrAuthMethodNotSupported </span><span class="cov8" title="1">{
+                                        username = s
+                                        err = e
+                                        return
+                                }</span>
+                        }
+                }
+        }
+        <span class="cov8" title="1">_, _ = sess.conn.Write([]byte{socks5.Socks5Version, byte(socks5.AuthNoAcceptable)})
+        return</span>
+}
+
+func (sess *session) handleRequest(ctx context.Context) (err error) <span class="cov8" title="1">{
+        var req *Request
+        if req, err = ReadRequest(sess.conn); err == nil </span><span class="cov8" title="1">{
+                switch req.Cmd </span>{
+                case socks5.CommandConnect:<span class="cov8" title="1">
+                        err = sess.handleCONNECT(ctx, req.Addr.String())</span>
+                case socks5.CommandAssociate:<span class="cov8" title="1">
+                        err = sess.handleASSOCIATE(ctx)</span>
+                case socks5.CommandBind:<span class="cov8" title="1">
+                        err = sess.handleBIND(ctx, req.Addr.String())</span>
+                default:<span class="cov8" title="1">
+                        err = socks5.ErrReplyCommandNotSupported</span>
+                }
+        }
+        <span class="cov8" title="1">return sess.fail(err)</span>
+}
+
+func (sess *session) fail(err error) error <span class="cov8" title="1">{
+        if err != nil </span><span class="cov8" title="1">{
+                replyCode := socks5.ReplyGeneralFailure
+                if re, ok := err.(socks5.ReplyError); ok </span><span class="cov8" title="1">{
+                        replyCode = re.ReplyCode
+                }</span>
+                <span class="cov8" title="1">rsp := Response{Addr: socks5.ZeroAddr, Reply: replyCode}
+                buf, _ := rsp.MarshalBinary()
+                _, _ = sess.conn.Write(buf)</span>
+        }
+        <span class="cov8" title="1">return err</span>
+}
+</pre>
+		
+		<pre class="file" id="file20" style="display: none">package socks5
+
+import (
+        "net"
+        "strconv"
+)
+
+func SplitHostPort(hostport string) (host string, port uint16, err error) <span class="cov8" title="1">{
+        var portStr string
+        if host, portStr, err = net.SplitHostPort(hostport); err == nil </span><span class="cov8" title="1">{
+                var portInt int
+                if portInt, err = strconv.Atoi(portStr); err == nil </span><span class="cov8" title="1">{
+                        if portInt &gt;= 0 &amp;&amp; portInt &lt;= 0xFFFF </span><span class="cov8" title="1">{
+                                return host, uint16(portInt), nil
+                        }</span>
+                        <span class="cov8" title="1">err = ErrInvalidPortNumber</span>
+                }
+        }
+        <span class="cov8" title="1">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file21" style="display: none">package socks5
+
+import (
+        "bytes"
+)
+
+type UDPPacket struct {
+        Addr Addr
+        Body []byte
+}
+
+func requireValidHeader(data []byte) (err error) <span class="cov8" title="1">{
+        if len(data) &lt; 4 || data[0] != 0 || data[1] != 0 </span><span class="cov8" title="1">{
+                err = ErrInvalidUDPPacket
+        }</span> else<span class="cov8" title="1"> if data[2] != 0 </span><span class="cov8" title="1">{
+                err = ErrFragmentedUDPPacket
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func ParseUDPPacket(data []byte) (pkt *UDPPacket, err error) <span class="cov8" title="1">{
+        if err = requireValidHeader(data); err == nil </span><span class="cov8" title="1">{
+                reader := bytes.NewReader(data[3:])
+                var addr Addr
+                if addr, err = ReadAddr(reader); err == nil </span><span class="cov8" title="1">{
+                        pkt = &amp;UDPPacket{
+                                Addr: addr,
+                                Body: data[len(data)-reader.Len():],
+                        }
+                }</span>
+        }
+        <span class="cov8" title="1">return</span>
+}
+
+func (u *UDPPacket) AppendBinary(inbuf []byte) (outbuf []byte, err error) <span class="cov8" title="1">{
+        outbuf = append(inbuf, 0, 0, 0)
+        if outbuf, err = u.Addr.AppendBinary(outbuf); err == nil </span><span class="cov8" title="1">{
+                outbuf = append(outbuf, u.Body...)
+        }</span>
+        <span class="cov8" title="1">return</span>
+}
+
+func (u *UDPPacket) MarshalBinary() (pkt []byte, err error) <span class="cov8" title="1">{
+        return u.AppendBinary(nil)
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
