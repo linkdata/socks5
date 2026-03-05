@@ -1,5 +1,5 @@
 [![build](https://github.com/linkdata/socks5/actions/workflows/build.yml/badge.svg)](https://github.com/linkdata/socks5/actions/workflows/build.yml)
-[![coverage](https://github.com/linkdata/socks5/blob/coverage/main/badge.svg)](https://htmlpreview.github.io/?https://github.com/linkdata/socks5/blob/coverage/main/report.html)
+[![coverage](https://github.com/linkdata/socks5/blob/coverage/main/badge.svg)](https://html-preview.github.io/?url=https://github.com/linkdata/socks5/blob/coverage/main/report.html)
 [![goreport](https://goreportcard.com/badge/github.com/linkdata/socks5)](https://goreportcard.com/report/github.com/linkdata/socks5)
 [![Docs](https://godoc.org/github.com/linkdata/socks5?status.svg)](https://godoc.org/github.com/linkdata/socks5)
 
